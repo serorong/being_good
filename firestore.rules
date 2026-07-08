@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// 신의반 — Firestore 보안 규칙
+// 2단계 보안 (학생 본인 검증 추가):
+//   - 모든 사용자: 인증 필요 (request.auth != null) — 익명 또는 구글
+//   - 학급 전체 데이터(/state/*) 쓰기: 화이트리스트의 교사 이메일만 허용
+//   - 입장 신청(/join_requests/{email}): 본인 이메일 문서만 작성, 교사는 전체 조회/삭제
+//   - 학생 상태(/students_v2/{sid}): 교사 또는 "그 자리에 매핑된 본인"만 쓰기
+//
+// 신원 모델:
+//   - 데이터는 학생 자리(sid, 예: god01)에 묶여 영구 저장된다.
+//   - 이메일↔sid 매핑(/state/student_email_map { value: { email: sid } })은 "출입 열쇠"일 뿐.
+//   - 매핑은 교사 승인 시에만 기록되므로, 학생이 임의로 남의 자리에 들어갈 수 없다.
+//
+// 교사 화이트리스트는 코드(src/data.ts)와 동일하게 유지해야 함.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function myEmail() {
+      return request.auth.token.email;
+    }
+
+    function isTeacher() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'imogen0716@dajeong.sjedues.kr',
+          'hailey@dajeong.sjedues.kr',
+          'uyoung98@dajeong.sjedues.kr',
+          'unicons89@dajeong.sjedues.kr',
+          'njh1312@dajeong.sjedues.kr',
+          'jj20223@dajeong.sjedues.kr',
+          'imogen0716@gmail.com',
+          'uts1368@dajeong.sjedues.kr'
+        ];
+    }
+
+    // 내 이메일에 매핑된 학생 자리(sid)를 반환. 매핑 없으면 null.
+    function mappedSid() {
+      return exists(/databases/$(database)/documents/state/student_email_map)
+        ? get(/databases/$(database)/documents/state/student_email_map).data.value[myEmail()]
+        : null;
+    }
+
+    // 학급 전체 공유 데이터 — 모두 읽기 / 교사만 쓰기
+    match /state/{document=**} {
+      allow read:  if isAuthed();
+      allow write: if isTeacher();
+    }
+
+    // 입장 신청 — 본인 이메일 문서만 작성/조회/취소, 교사는 전체 조회/삭제(승인 처리)
+    match /join_requests/{email} {
+      allow get:           if isTeacher() || (isAuthed() && myEmail() == email);
+      allow list:          if isTeacher();
+      allow create, update: if isAuthed()
+                              && myEmail() == email
+                              && request.resource.data.email == email;
+      allow delete:        if isTeacher() || (isAuthed() && myEmail() == email);
+    }
+
+    // 학생 상태 — 모두 읽기 / 교사 또는 "그 자리에 매핑된 본인"만 쓰기
+    match /students_v2/{sid} {
+      allow read:  if isAuthed();
+      allow write: if isTeacher() || (isAuthed() && mappedSid() == sid);
+    }
+
+    // 미니룸 선물(액자 그림) — 로그인하면 읽기.
+    //  생성: 보낸 사람이 본인(fromSid==내 자리)일 때만(교사 제외 — 교사는 선물 안 보냄).
+    //  삭제: 교사, 받는 사람(toSid), 보낸 사람(fromSid).  (수정 없음)
+    match /gifts/{id} {
+      allow read:   if isAuthed();
+      allow create: if isAuthed() && request.resource.data.fromSid == mappedSid();
+      allow delete: if isTeacher()
+                      || mappedSid() == resource.data.toSid
+                      || mappedSid() == resource.data.fromSid;
+    }
+  }
+}

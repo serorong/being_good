@@ -1,0 +1,390 @@
+/* ============================================================
+   신의반 신전 — 마음마을  /  Design System  (v2)
+   리뉴얼 디자인 토큰 & 컴포넌트 스타일시트
+   ------------------------------------------------------------
+   사용법
+   1) <head> 에 글꼴과 이 파일을 연결:
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
+      <link rel="stylesheet" href="design-system.css">
+   2) <body class="sin-app"> 로 기본 배경/글꼴 적용.
+   3) 색을 바꾸려면 :root 변수만 수정하면 전체 톤이 함께 변합니다.
+   ============================================================ */
+
+:root {
+  /* ---------- 배경 / 표면 ---------- */
+  --bg-page:        #ffffff;   /* 전체 페이지 배경 — 하얀색 깔끔 테마 */
+  --surface:        #fdfaf1;   /* 카드 표면 (크림) */
+  --surface-2:      #fffdf6;   /* 한 단계 밝은 표면 (인풋/내부 칩) */
+  --surface-3:      #f3ecd9;   /* 보조 칩/푸터 */
+  --header-bg:      #fdf6dc;   /* 상단 네비 — 아주 연한 노랑 */
+  --header-line:    #f0e6c4;   /* 네비 하단 보더 */
+
+  /* ---------- 테두리 ---------- */
+  --border:         #ece1c8;   /* 카드 기본 테두리 */
+  --border-strong:  #e6dabf;   /* 진한 테두리 / 구분선 */
+
+  /* ---------- 브랜드 그린 ---------- */
+  --green:          #5f7d3b;   /* 제목·강조 텍스트 */
+  --green-bright:   #7aa049;
+  --green-btn:      #88a85f;   /* 주요 버튼 채움 */
+  --green-btn-sh:   #6f8c46;   /* 버튼 입체 그림자 */
+  --green-grad-a:   #a8c777;   /* 진행바 그라데이션 */
+  --green-grad-b:   #88a85f;
+
+  /* ---------- 연둣빛 톤 (활성/강조/테두리) ---------- */
+  --green-soft:     #e8f1d6;   /* 활성 탭/선택 배경 */
+  --green-soft-2:   #eef3e0;   /* 말풍선/안내 박스 */
+  --green-line:     #c9dca0;   /* 연둣빛 테두리(구분선) */
+  --green-line-2:   #c2da92;
+  --green-line-3:   #d6e2bb;   /* 말풍선 테두리 */
+  --green-border-bold:#b6d49a; /* 두꺼운 박스 테두리(하단 합본 카드) */
+
+  /* ---------- 텍스트 ---------- */
+  --text:           #5a5340;
+  --text-2:         #6a6149;
+  --text-3:         #7d7459;
+  --muted:          #9a8f72;
+  --muted-2:        #a99d80;
+  --muted-3:        #b3a888;
+  --nav-text:       #222222;   /* 상단 메뉴 글씨 — 깔끔한 검정 */
+
+  /* ---------- 포인트(카테고리/뱃지) ---------- */
+  --gold:           #caa53b;
+  --gold-deep:      #b0723a;   /* 쿠키/포인트 가격 */
+  --gold-text:      #9a7c2f;
+  --gold-bg:        #fdf3d4;
+  --blue:           #4f7290;   --blue-bg:#dceaf3;
+  --purple:         #7a5f99;   --purple-bg:#ece3f3;
+  --pink:           #c2697a;   --pink-bg:#fbe1e4;
+
+  /* ---------- 홈 일력 / 마음 테마 ---------- */
+  --cal-bg:         #cfe8f6;   /* 홈 hero 배경 = 일력 매칭색(연블루) */
+  --cal-card:       #bfe0f2;   /* 일력 카드색 */
+  --cal-ink:        #2f3a44;   /* 일력 글씨 */
+
+  /* ---------- 감정 구슬 12색 (중분류) ---------- */
+  --emo-joy:#FFD75E;      /* 기쁨·활력 */
+  --emo-pride:#F5A261;    /* 성취·자부심 */
+  --emo-grateful:#FFB7A5; /* 감사·따뜻함 */
+  --emo-curious:#9AD95D;  /* 호기심·몰입 */
+  --emo-calm:#8EDCC8;     /* 평온·안도 */
+  --emo-anxious:#8FA8FF;  /* 불안·두려움 */
+  --emo-sad:#6DB5F5;      /* 슬픔·낙담 */
+  --emo-anger:#FF7A6B;    /* 분노·불쾌 */
+  --emo-shy:#C7A1F2;      /* 부끄러움·혼란 */
+  --emo-regret:#B7BEC9;   /* 후회·아쉬움 */
+  --emo-lonely:#5E7BC7;   /* 외로움·그리움 */
+  --emo-jealous:#A7C96D;  /* 질투·부러움 */
+
+  /* ---------- 글꼴 ---------- */
+  --font-title: 'Jua', sans-serif;          /* 제목·버튼·라벨 */
+  --font-body:  'Gowun Dodum', sans-serif;  /* 본문 */
+  --font-hand:  'Gaegu', sans-serif;        /* 손글씨 강조(선택) */
+
+  /* ---------- 모서리 / 간격 / 그림자 ---------- */
+  --r-sm:10px; --r-md:14px; --r-lg:18px; --r-xl:22px; --r-2xl:26px; --r-pill:999px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px;
+  --shadow-card:0 6px 22px rgba(120,100,60,.08);
+  --shadow-soft:0 4px 12px rgba(120,140,80,.08);
+  --shadow-lift:0 12px 26px rgba(120,100,60,.16);
+  --shadow-btn:0 4px 0 var(--green-btn-sh);
+  --content-max:1500px;
+}
+
+/* ============================================================
+   리셋 & 앱 셸 (한 화면 무스크롤 레이아웃)
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+.sin-app {
+  margin: 0;
+  min-height: 100vh;        /* 내용 많으면 페이지 스크롤 허용 (반응형) */
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+  font-family: var(--font-body);
+  color: var(--text);
+}
+.sin-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sin-screen {              /* 화면 섹션: 남은 높이 채우되 넘치면 스크롤 */
+  flex: 1 0 auto;
+  max-width: var(--content-max); width: 100%; margin: 0 auto;
+  padding: 18px 34px; box-sizing: border-box;
+  display: flex; flex-direction: column;
+}
+.page-title {
+  font-family: var(--font-title);
+  font-size: clamp(28px, 4vh, 46px);
+  color: var(--green);
+  margin: 0; display: flex; align-items: center; gap: 10px;
+}
+.page-subtitle { font-size: 16px; color: var(--muted); margin: 8px 0 0; }
+
+/* ============================================================
+   상단 네비게이션 (연노랑 바 · 검정 글씨 · 한 줄 균등 분배)
+   ============================================================ */
+.nav { flex-shrink: 0; z-index: 40; background: var(--header-bg); border-bottom: 2px solid var(--header-line); box-shadow: 0 2px 10px rgba(120,100,60,.05); }
+.nav__inner { max-width: var(--content-max); margin: 0 auto; display: flex; align-items: center; gap: 18px; padding: 10px 26px; }
+.nav__brand { display: flex; align-items: center; gap: 11px; cursor: pointer; flex-shrink: 0; }
+.nav__brand-title { font-family: var(--font-title); font-size: 25px; color: var(--green); line-height: 1; }
+.nav__brand-sub { font-size: 12px; color: var(--muted-2); margin-top: 3px; }
+.nav__menu { flex: 1; display: flex; align-items: center; justify-content: space-evenly; gap: 2px; flex-wrap: nowrap; min-width: 0; }
+.nav__btn { position: relative; border: none; background: transparent; cursor: pointer; padding: 8px 14px; border-radius: 12px; flex-shrink: 0; }
+.nav__btn.is-active { background: var(--green-soft); border: 2px solid var(--green-line); }
+.nav__btn-label { position: relative; z-index: 1; display: flex; align-items: center; gap: 6px; font-family: var(--font-title); font-size: clamp(15px, 1.25vw, 19px); color: var(--nav-text); white-space: nowrap; }
+.nav__icon { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }  /* 메뉴 아이콘 이미지 */
+
+/* ============================================================
+   버튼
+   ============================================================ */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--font-title); cursor: pointer; border: none; border-radius: var(--r-md); transition: filter .15s ease, transform .1s ease; }
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: translateY(1px); }
+.btn--primary { background: var(--green-btn); color: #fff; font-size: 16px; padding: 12px 24px; box-shadow: var(--shadow-btn); }
+.btn--ghost { background: var(--surface-3); color: #8a7c5a; border: 2px solid var(--border-strong); font-size: 14px; padding: 7px 14px; }
+.btn--leaf { background: var(--green-soft-2); color: var(--green); border: 2px solid var(--green-line-3); font-size: 13px; padding: 6px 14px; }
+/* 이미지 버튼(예: 감정일기 쓰기) — 투명 버튼에 PNG */
+.btn-img { display: block; border: none; background: transparent; cursor: pointer; padding: 0; }
+.btn-img > img { display: block; width: 100%; transition: transform .12s; }
+.btn-img:hover > img { transform: scale(1.03); }
+
+/* ============================================================
+   카드 / 패널
+   ============================================================ */
+.card { background: var(--surface); border: 2px solid var(--border); border-radius: var(--r-xl); padding: var(--sp-6); }
+.card--note { background: var(--surface-3); border-color: var(--border-strong); }
+.card--leaf { background: var(--green-soft-2); border-color: var(--green-line-3); }
+.card--empty { border: 2px dashed var(--green-line-3); text-align: center; padding: 80px 30px; }
+.lift { transition: transform .15s ease, box-shadow .15s ease; }
+.lift:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); }
+.card-title { font-family: var(--font-title); font-size: 21px; color: var(--green); }
+
+/* 하단 합본 카드: 두 영역 한 박스 + 점선 구분선 + 두꺼운 연두 테두리 */
+.merge-box { display: flex; align-items: stretch; background: #fff; border: 3px solid var(--green-border-bold); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-soft); }
+.merge-box__cell { padding: 16px 20px; display: flex; flex-direction: column; justify-content: center; }
+.merge-box__divider { width: 0; border-left: 3px dashed var(--green-line); align-self: stretch; }
+
+/* ============================================================
+   칩 / 뱃지
+   ============================================================ */
+.chip { display: inline-block; font-family: var(--font-title); font-size: 13px; border-radius: var(--r-sm); padding: 3px 12px; }
+.chip--green { color: var(--green); background: var(--green-soft-2); }
+.chip--gold { color: var(--gold-text); background: var(--gold-bg); }
+.chip--blue { color: var(--blue); background: var(--blue-bg); }
+.chip--purple { color: var(--purple); background: var(--purple-bg); }
+.chip--pink { color: var(--pink); background: var(--pink-bg); }
+.chip--solid { color: #fff; background: var(--green-btn); padding: 5px 15px; font-size: 14px; }
+
+/* ============================================================
+   탭 (요일 / 상점 카테고리)
+   ============================================================ */
+.tabs { display: flex; gap: 6px; background: var(--surface); border: 2px solid var(--border); border-radius: var(--r-lg); padding: 7px; }
+.tab { position: relative; flex: 1; border: none; background: transparent; cursor: pointer; border-radius: var(--r-md); padding: 12px 0; font-family: var(--font-title); font-size: 19px; color: var(--green); }
+.tab.is-active { background: #dcebbd; border: 2px solid var(--green-line-2); }
+.tabs--filled { background: var(--surface-3); border: none; }
+.tabs--filled .tab.is-active { background: var(--green-btn); color: #fff; border: none; }
+
+/* ============================================================
+   입력 / 진행바
+   ============================================================ */
+.input, .textarea { width: 100%; border: 2px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-2); padding: 14px 16px; font-family: var(--font-body); font-size: 15px; color: var(--text); outline: none; }
+.textarea { resize: none; min-height: 84px; }
+.input:focus, .textarea:focus { border-color: var(--green-line-2); }
+.progress { height: 14px; background: var(--border); border-radius: var(--r-pill); overflow: hidden; }
+.progress--sm { height: 8px; }
+.progress__fill { height: 100%; border-radius: var(--r-pill); background: linear-gradient(90deg, var(--green-grad-a), var(--green-grad-b)); transition: width .3s ease; }
+
+/* ============================================================
+   홈 일력 (오늘의 우리반 일력)
+   ============================================================ */
+.hero { position: relative; flex: 1; min-height: 0; border-radius: var(--r-2xl); overflow: hidden; box-shadow: var(--shadow-card); border: 2px solid #d3e7f1; background: var(--cal-bg); display: flex; align-items: stretch; justify-content: space-between; gap: 24px; padding: clamp(18px,3.5vh,36px) clamp(28px,5vw,70px); }
+.cal { font-family: var(--font-title); color: var(--cal-ink); text-align: center; }
+.cal__month, .cal__wday { font-size: clamp(17px, 2.2vh, 28px); letter-spacing: 6px; }
+.cal__day { font-size: clamp(70px, 13vh, 130px); margin: clamp(2px,.8vh,8px) 0; line-height: 1; }
+.cal__caption { font-family: var(--font-body); font-weight: 700; font-size: clamp(19px, 2.8vh, 32px); color: var(--cal-ink); line-height: 1.4; }
+
+/* ============================================================
+   마음 구슬 / 유리병 / 감정 안내 패널 + 말풍선
+   ============================================================ */
+.jar { position: relative; width: 190px; height: 190px; }              /* 유리병(jar.png) 컨테이너 */
+.jar__fill { position: absolute; left: 17.5%; right: 17.5%; top: 31%; bottom: 9.5%; display: flex; flex-wrap: wrap; align-content: flex-end; justify-content: center; overflow: hidden; z-index: 1; } /* 구슬이 바닥부터 쌓임 */
+.jar__glass { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; z-index: 2; }
+.bead { width: 25px; height: 25px; margin: -1.5px; cursor: pointer; transition: transform .12s; filter: drop-shadow(0 1px 1px rgba(80,90,60,.18)); }
+.bead:hover { transform: scale(1.2); }
+
+.emo-panel { position: relative; background: #fff; border: 3px solid var(--green-line); border-radius: var(--r-xl); padding: 24px 26px; max-width: 380px; box-shadow: 0 10px 26px rgba(80,90,60,.14); text-align: center; }  /* border-color는 해당 감정색으로 교체 가능 */
+.emo-panel__close { position: absolute; top: 10px; right: 12px; width: 30px; height: 30px; border-radius: 50%; border: none; background: #f0ede4; cursor: pointer; font-size: 15px; color: #8a8369; line-height: 1; }
+.emo-panel__label { font-family: var(--font-title); font-size: 26px; color: var(--green); margin-top: 6px; }
+/* 말풍선 (왼쪽 꼬리) */
+.bubble { position: relative; background: var(--green-soft-2); border: 2px solid var(--green-line-3); border-radius: var(--r-md); padding: 12px 14px; font-size: 14px; color: #5a6340; line-height: 1.55; text-align: left; }
+.bubble::before { content: ""; position: absolute; left: -9px; bottom: 12px; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-right: 9px solid var(--green-line-3); }
+.bubble::after  { content: ""; position: absolute; left: -6px; bottom: 12px; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-right: 9px solid var(--green-soft-2); }
+
+/* ============================================================
+   스케치(우리반 일력 도전) 셀 — 그림색에 맞춰 배경 자동 변경
+   ============================================================ */
+.daily-cell { background: var(--cal-card); border-radius: var(--r-lg); border: 2px solid #e7e0cf; padding: 14px 14px 12px; display: flex; flex-direction: column; align-items: center; transition: background .35s ease; } /* JS가 inline background를 평균색 파스텔로 갱신 */
+.sketch-canvas { background: #fff; border-radius: var(--r-sm); touch-action: none; cursor: crosshair; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.swatch { position: relative; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid #e0d8c4; padding: 0; }
+.swatch.is-active::after { content: ""; position: absolute; inset: -5px; border: 2.5px solid var(--green); border-radius: 50%; }
+
+/* ============================================================
+   모달 / 토스트
+   ============================================================ */
+.modal-overlay { position: fixed; inset: 0; background: rgba(70,62,40,.4); z-index: 60; display: flex; align-items: center; justify-content: center; }
+.modal { background: var(--surface); border: 3px solid var(--border); border-radius: var(--r-2xl); padding: 28px 26px; text-align: center; box-shadow: 0 20px 50px rgba(80,60,30,.3); animation: pop .2s ease; }
+
+/* ============================================================
+   유틸 / 애니메이션
+   ============================================================ */
+.divider { border-top: 2px solid var(--border-strong); }
+.divider--dash { border-top: 1.5px dashed var(--border-strong); }
+.row { display: flex; align-items: center; gap: var(--sp-3); }
+.stack { display: flex; flex-direction: column; gap: var(--sp-4); }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); }
+.diary-grid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 22px; align-items: start; }
+.split-grid { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 16px; align-items: start; }
+
+@keyframes bob    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+@keyframes twinkle{ 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1.1)} }
+@keyframes pop    { 0%{opacity:0;transform:scale(.85)} 100%{opacity:1;transform:scale(1)} }
+.anim-bob { animation: bob 2.4s ease-in-out infinite; }
+.anim-float { animation: floaty 3.2s ease-in-out infinite; }
+
+::-webkit-scrollbar { height: 8px; width: 8px; }
+::-webkit-scrollbar-thumb { background: #d9cdaf; border-radius: 8px; }
+
+/* ============================================================
+   반응형 (태블릿 / 모바일)
+   ============================================================ */
+@media (max-width: 1024px) {
+  .nav__inner { flex-wrap: wrap; gap: 10px; padding: 10px 18px; }
+  .nav__menu { order: 3; width: 100%; flex-wrap: wrap; justify-content: flex-start; gap: 4px; }
+  .nav__btn { padding: 6px 10px; }
+  .nav__btn-label { font-size: 15px; }
+  .sin-screen { padding: 16px 18px; }
+  .hero { flex-direction: column; align-items: stretch; gap: 16px; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .diary-grid { grid-template-columns: 1fr; }
+  .split-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .nav__icon { width: 20px; height: 20px; }
+  .nav__btn-label { font-size: 14px; gap: 4px; }
+  .nav__brand-title { font-size: 21px; }
+  .sin-screen { padding: 12px 12px; }
+  .page-title { font-size: 26px; }
+  .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   레거시 클래스 → 마음마을 톤 (교사 학급관리 등 기존 화면)
+   index.css(@layer components)보다 나중 로드 + unlayered → 자동 우선
+   ============================================================ */
+.card-temple {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--r-xl);
+  outline: none;
+  box-shadow: var(--shadow-card);
+}
+.card-temple::before { display: none; }
+.card-soft {
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: var(--r-lg);
+  outline: none;
+  box-shadow: none;
+}
+.gold-text, .forest-text {
+  background: none;
+  -webkit-text-fill-color: var(--green);
+  color: var(--green);
+  font-family: var(--font-title);
+}
+.honey-text {
+  background: none;
+  -webkit-text-fill-color: var(--gold-deep);
+  color: var(--gold-deep);
+  font-family: var(--font-title);
+}
+.btn-gold {
+  color: #fff;
+  background: var(--green-btn);
+  border-radius: var(--r-md);
+  outline: none;
+  box-shadow: var(--shadow-btn);
+  font-family: var(--font-title);
+  -webkit-font-smoothing: auto;
+}
+.btn-gold:hover { background: var(--green-bright); }
+.btn-gold:active { transform: translateY(1px); box-shadow: 0 2px 0 var(--green-btn-sh); }
+.btn-honey {
+  color: #fff;
+  background: var(--gold);
+  border-radius: var(--r-md);
+  outline: none;
+  box-shadow: 0 4px 0 #9a7c2f;
+  font-family: var(--font-title);
+  -webkit-font-smoothing: auto;
+}
+.btn-honey:active { transform: translateY(1px); box-shadow: 0 2px 0 #9a7c2f; }
+.btn-ghost {
+  color: var(--text-3);
+  background: var(--surface-3);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: none;
+  font-family: var(--font-title);
+}
+.btn-ghost:hover { background: var(--border); }
+.chip {
+  background: var(--green-soft-2);
+  color: var(--green);
+  border: none;
+  border-radius: var(--r-sm);
+  font-family: var(--font-title);
+}
+.chip-blue  { background: var(--blue-bg); color: var(--blue); border: none; }
+.chip-green { background: var(--green-soft); color: var(--green); border: none; }
+.chip-rose  { background: var(--pink-bg); color: var(--pink); border: none; }
+.tab-link {
+  color: var(--green);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--r-md);
+  font-family: var(--font-title);
+}
+.tab-link:hover { background: var(--green-soft-2); }
+.tab-link.is-active {
+  color: var(--green);
+  background: var(--green-soft);
+  border-color: var(--green-line-2);
+  box-shadow: none;
+}
+.progress-bar {
+  height: 14px;
+  background: var(--border);
+  border-radius: var(--r-pill);
+  outline: none;
+  overflow: hidden;
+}
+.progress-bar > div { background: linear-gradient(90deg, var(--green-grad-a), var(--green-grad-b)); }
+.pixel-input {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: none;
+  font-family: var(--font-body);
+}
+.pixel-input:focus { outline: none; border-color: var(--green-line-2); box-shadow: none; }
+.rune-divider { background: var(--border-strong); height: 2px; }
+.rune-divider::after { background: var(--surface); }
+.post-it { outline: none; box-shadow: var(--shadow-soft); border-radius: var(--r-md); font-family: var(--font-body); -webkit-font-smoothing: auto; }
+.pixel-header-shadow { box-shadow: var(--shadow-soft); }
