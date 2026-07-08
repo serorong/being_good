@@ -1,5 +1,12 @@
 {
   "projects": {
     "default": "divine-classroom"
+  },
+  "targets": {
+    "divine-classroom": {
+      "hosting": {
+        "being-good": ["being-good"]
+      }
+    }
   }
 }
