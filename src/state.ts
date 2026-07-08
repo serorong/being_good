@@ -1,25 +1,25 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useContext, useSyncExternalStore } from 'react'
 import {
   collection, deleteDoc, doc, getDoc, onSnapshot, setDoc, writeBatch,
   type CollectionReference, type DocumentReference,
 } from 'firebase/firestore'
 import { db, onSignedIn } from './firebase'
-import { DEFAULT_AGORA_TOPICS, DEFAULT_CUSTOM_TITLES, DEFAULT_MISSIONS, MOCK_STUDENTS, levelFromXp, themesUnlockedAt, itemsUnlockedAt } from './data'
-import type { AgoraPost, AgoraTopic, CustomTitle, DailyFeature, JoinRequest, MiniGroup, Mission, Notice, Offering, Student, StudentState, StudentStateMap } from './types'
+import {
+  DEFAULT_AGORA_TOPICS, DEFAULT_CUSTOM_TITLES, DEFAULT_MISSIONS,
+  DIVINE_CLASS_ID, MOCK_STUDENTS, levelFromXp, themesUnlockedAt, itemsUnlockedAt,
+} from './data'
+import type {
+  AgoraPost, AgoraTopic, CustomTitle, DailyFeature, JoinRequest,
+  MiniGroup, Mission, Notice, Offering, Student, StudentState, StudentStateMap,
+} from './types'
+import { ClassStoresContext, type ClassStoresShape, registerDivineStores } from './classStores'
 
 type Listener = () => void
 
-/**
- * Firestore는 `undefined` 값을 가진 필드를 거부한다.
- * 객체/배열 트리에서 undefined 값을 재귀적으로 제거한 새 구조를 반환.
- * (null, 0, '', false 등은 보존)
- */
 function stripUndefined<T>(value: T): T {
   if (value === undefined) return value
   if (value === null) return value
-  if (Array.isArray(value)) {
-    return value.map(v => stripUndefined(v)) as unknown as T
-  }
+  if (Array.isArray(value)) return value.map(v => stripUndefined(v)) as unknown as T
   if (typeof value === 'object') {
     const out: Record<string, unknown> = {}
     for (const k of Object.keys(value as Record<string, unknown>)) {
@@ -32,27 +32,18 @@ function stripUndefined<T>(value: T): T {
   return value
 }
 
-/**
- * Firestore + LocalStorage 캐시 하이브리드 스토어.
- *  - 부팅 시 LocalStorage 캐시로 즉시 UI 채우기
- *  - Firestore onSnapshot으로 실시간 동기화
- *  - set() 호출 시: 로컬 스냅샷 즉시 반영(낙관) → Firestore 쓰기
- *
- * Firestore 컬렉션: /state/{key}  (각 키마다 { value: T } 단일 문서)
- */
+/** Firestore + LocalStorage 캐시 하이브리드 스토어. docRef를 외부에서 받는다. */
 class Store<T> {
   private listeners = new Set<Listener>()
   private snapshot: T
-  private docRef: DocumentReference
-  private cacheKey: string
   private listening = false
 
-  constructor(private key: string, private fallback: T) {
-    this.cacheKey = `divine-classroom.${key}.v1`
+  constructor(
+    private cacheKey: string,
+    private fallback: T,
+    private docRef: DocumentReference,
+  ) {
     this.snapshot = this.loadCache() ?? fallback
-    this.docRef = doc(db, 'state', key)
-
-    // 구글 로그인 이후에만 구독을 시작한다(익명 인증 미사용 → 로그인 전엔 읽기 권한 없음).
     onSignedIn(() => this.startListening())
   }
 
@@ -69,16 +60,15 @@ class Store<T> {
             this.saveCache(v)
             this.notify()
           } else {
-            // 최초 1회: 현재(캐시 또는 fallback) 값으로 시드
             setDoc(this.docRef, { value: stripUndefined(this.snapshot) }).catch(err =>
-              console.error(`[state] seed ${this.key} failed:`, err)
+              console.error(`[state] seed ${this.cacheKey} failed:`, err)
             )
           }
         },
-        err => console.error(`[state] listen ${this.key} error:`, err)
+        err => console.error(`[state] listen ${this.cacheKey} error:`, err)
       )
     } catch (e) {
-      console.error(`[state] onSnapshot setup ${this.key}:`, e)
+      console.error(`[state] onSnapshot setup ${this.cacheKey}:`, e)
     }
   }
 
@@ -86,127 +76,88 @@ class Store<T> {
     try {
       const raw = localStorage.getItem(this.cacheKey)
       return raw ? (JSON.parse(raw) as T) : null
-    } catch {
-      return null
-    }
+    } catch { return null }
   }
-
   private saveCache(v: T) {
     try { localStorage.setItem(this.cacheKey, JSON.stringify(v)) } catch {}
   }
-
-  private notify() {
-    this.listeners.forEach(l => l())
-  }
+  private notify() { this.listeners.forEach(l => l()) }
 
   get = (): T => this.snapshot
-
   set = (updater: T | ((prev: T) => T), onError?: (e: unknown) => void) => {
     const next = typeof updater === 'function' ? (updater as (p: T) => T)(this.snapshot) : updater
     this.snapshot = next
     this.saveCache(next)
     this.notify()
-    // Firestore는 undefined 필드를 거부하므로 재귀적으로 제거 후 전송
     setDoc(this.docRef, { value: stripUndefined(next) }).catch(err => {
-      console.error(`[state] write ${this.key} failed:`, err)
+      console.error(`[state] write ${this.cacheKey} failed:`, err)
       onError?.(err)
     })
   }
-
   subscribe = (l: Listener) => {
     this.listeners.add(l)
     return () => { this.listeners.delete(l) }
   }
 }
 
-const noticesStore     = new Store<Notice[]>('notices', [])
-const offeringsStore   = new Store<Offering[]>('offerings', [])
-const titlesStore      = new Store<CustomTitle[]>('titles', DEFAULT_CUSTOM_TITLES)
-const missionsStore    = new Store<Mission[]>('missions', DEFAULT_MISSIONS)
-const agoraTopicsStore = new Store<AgoraTopic[]>('agora_topics', DEFAULT_AGORA_TOPICS)
-const agoraPostsStore  = new Store<AgoraPost[]>('agora_posts', [])
-const rosterStore      = new Store<Student[]>('roster', MOCK_STUDENTS)
-const studentEmailMapStore = new Store<Record<string, string>>('student_email_map', {})
-const dailyFeatureStore = new Store<DailyFeature | null>('daily_feature', null)
-const miniGroupsStore  = new Store<MiniGroup[]>('miniroom_groups', [])
+/* ── divine class 스토어 인스턴스 (루트 경로 — 절대 변경 없음) ── */
 
-/**
- * 학생 상태 — 단일 문서 → 학생별 문서 컬렉션으로 전환된 하이브리드 스토어.
- *
- *  - 신: students_v2/{sid} 컬렉션 (학생당 한 문서)
- *  - 구: state/students_state 단일 문서 (legacy fallback)
- *
- *  동작:
- *   1) 두 곳을 동시에 onSnapshot으로 구독한다. 새 컬렉션이 비어 있는 동안은
- *      legacy 단일 문서를 그대로 보여준다 (데이터가 사라지는 순간이 없음).
- *   2) 새 컬렉션이 비어 있고 legacy에 데이터가 있으면, 첫 응답을 받자마자
- *      자동으로 1회 batch 복사 (마이그레이션).
- *   3) 새 컬렉션이 채워지면 legacy 구독을 자동으로 unsubscribe (cutover).
- *      이후 모든 read/write는 학생별 문서만 대상으로 한다.
- *   4) set 호출 시 prev/next를 비교해 변경/추가/삭제된 sid만 학생별 문서에 write.
- *      30명 중 1명이 변경되어도 1개 문서만 전송된다 (기존: 전체 30명 페이로드 재전송).
- */
+const noticesStore     = new Store<Notice[]>('divine.notices', [], doc(db, 'state', 'notices'))
+const offeringsStore   = new Store<Offering[]>('divine.offerings', [], doc(db, 'state', 'offerings'))
+const titlesStore      = new Store<CustomTitle[]>('divine.titles', DEFAULT_CUSTOM_TITLES, doc(db, 'state', 'titles'))
+const missionsStore    = new Store<Mission[]>('divine.missions', DEFAULT_MISSIONS, doc(db, 'state', 'missions'))
+const agoraTopicsStore = new Store<AgoraTopic[]>('divine.agora_topics', DEFAULT_AGORA_TOPICS, doc(db, 'state', 'agora_topics'))
+const agoraPostsStore  = new Store<AgoraPost[]>('divine.agora_posts', [], doc(db, 'state', 'agora_posts'))
+const rosterStore      = new Store<Student[]>('divine.roster', MOCK_STUDENTS, doc(db, 'state', 'roster'))
+const studentEmailMapStore = new Store<Record<string, string>>('divine.student_email_map', {}, doc(db, 'state', 'student_email_map'))
+const dailyFeatureStore = new Store<DailyFeature | null>('divine.daily_feature', null, doc(db, 'state', 'daily_feature'))
+const miniGroupsStore  = new Store<MiniGroup[]>('divine.miniroom_groups', [], doc(db, 'state', 'miniroom_groups'))
+
+/* ── divine 학생 상태 — 하이브리드 스토어 (legacy 마이그레이션 포함) ── */
+
 class StudentsHybridStore {
   private listeners = new Set<Listener>()
   private cacheKey = 'divine-classroom.students_state.v1'
   private snapshot: StudentStateMap
-
   private colRef: CollectionReference
   private legacyDocRef: DocumentReference
-
   private collectionMap: StudentStateMap = {}
   private collectionReceived = false
   private legacyMap: StudentStateMap = {}
   private legacyReceived = false
-
   private legacyUnsub: (() => void) | null = null
   private migrationAttempted = false
   private listening = false
 
-  constructor() {
+  constructor(private getRoster: () => Student[]) {
     this.snapshot = this.loadCache() ?? {}
     this.colRef = collection(db, 'students_v2')
     this.legacyDocRef = doc(db, 'state', 'students_state')
-    // 구글 로그인 이후에만 구독을 시작한다(익명 인증 미사용).
     onSignedIn(() => this.startListening())
   }
 
   private startListening() {
     if (this.listening) return
     this.listening = true
-    // 컬렉션 구독 — 항상 활성
     try {
-      onSnapshot(
-        this.colRef,
-        snap => {
-          const map: StudentStateMap = {}
-          snap.forEach(d => { map[d.id] = d.data() as StudentState })
-          this.collectionMap = map
-          this.collectionReceived = true
-          this.recompute()
-          this.maybeMigrateAndCutover()
-        },
-        err => console.error('[state] students_v2 listen error:', err),
-      )
-    } catch (e) {
-      console.error('[state] students_v2 onSnapshot setup:', e)
-    }
+      onSnapshot(this.colRef, snap => {
+        const map: StudentStateMap = {}
+        snap.forEach(d => { map[d.id] = d.data() as StudentState })
+        this.collectionMap = map
+        this.collectionReceived = true
+        this.recompute()
+        this.maybeMigrateAndCutover()
+      }, err => console.error('[state] students_v2 listen error:', err))
+    } catch (e) { console.error('[state] students_v2 onSnapshot setup:', e) }
 
-    // legacy 단일 문서 구독 — 컬렉션이 채워지면 unsubscribe
     try {
-      this.legacyUnsub = onSnapshot(
-        this.legacyDocRef,
-        snap => {
-          this.legacyMap = snap.exists() ? ((snap.data()?.value as StudentStateMap) ?? {}) : {}
-          this.legacyReceived = true
-          this.recompute()
-          this.maybeMigrateAndCutover()
-        },
-        err => console.error('[state] students_state(legacy) listen error:', err),
-      )
-    } catch (e) {
-      console.error('[state] legacy onSnapshot setup:', e)
-    }
+      this.legacyUnsub = onSnapshot(this.legacyDocRef, snap => {
+        this.legacyMap = snap.exists() ? ((snap.data()?.value as StudentStateMap) ?? {}) : {}
+        this.legacyReceived = true
+        this.recompute()
+        this.maybeMigrateAndCutover()
+      }, err => console.error('[state] students_state(legacy) listen error:', err))
+    } catch (e) { console.error('[state] legacy onSnapshot setup:', e) }
   }
 
   private isCollectionPopulated() {
@@ -222,7 +173,6 @@ class StudentsHybridStore {
   }
 
   private async maybeMigrateAndCutover() {
-    // 마이그: 컬렉션 비어있고 legacy에 데이터 있음 → 1회 자동 복사
     if (
       !this.migrationAttempted &&
       this.collectionReceived && Object.keys(this.collectionMap).length === 0 &&
@@ -231,7 +181,6 @@ class StudentsHybridStore {
       this.migrationAttempted = true
       try {
         const entries = Object.entries(this.legacyMap)
-        // Firestore batch 한도 500. 30명 학급에선 한 번에 처리되지만 안전하게 500개씩 끊음.
         for (let i = 0; i < entries.length; i += 500) {
           const batch = writeBatch(db)
           for (const [sid, state] of entries.slice(i, i + 500)) {
@@ -242,11 +191,9 @@ class StudentsHybridStore {
         console.info(`[state] migrated ${entries.length} students to students_v2`)
       } catch (e) {
         console.error('[state] migration failed:', e)
-        this.migrationAttempted = false // 다음 onSnapshot 호출 시 재시도
+        this.migrationAttempted = false
       }
     }
-
-    // cutover: 컬렉션이 채워지면 legacy 구독 종료
     if (this.isCollectionPopulated() && this.legacyUnsub) {
       this.legacyUnsub()
       this.legacyUnsub = null
@@ -263,7 +210,6 @@ class StudentsHybridStore {
     try { localStorage.setItem(this.cacheKey, JSON.stringify(v)) } catch {}
   }
   private notify() { this.listeners.forEach(l => l()) }
-
   get = (): StudentStateMap => this.snapshot
 
   set = (
@@ -276,14 +222,12 @@ class StudentsHybridStore {
     this.saveCache(next)
     this.notify()
 
-    // 학생별 문서에 변경분만 write
     const prevKeys = new Set(Object.keys(prev))
     const nextKeys = new Set(Object.keys(next))
     const ops: Promise<unknown>[] = []
     for (const sid of nextKeys) {
-      if (prev[sid] !== next[sid]) {
+      if (prev[sid] !== next[sid])
         ops.push(setDoc(doc(this.colRef, sid), stripUndefined(next[sid]) as unknown as Record<string, unknown>))
-      }
     }
     for (const sid of prevKeys) {
       if (!nextKeys.has(sid)) ops.push(deleteDoc(doc(this.colRef, sid)))
@@ -293,11 +237,9 @@ class StudentsHybridStore {
       onError?.(err)
     })
 
-    // legacy double-write — 컬렉션이 아직 채워지지 않은 transition 동안만
     if (!this.isCollectionPopulated()) {
       setDoc(this.legacyDocRef, { value: stripUndefined(next) }).catch(err =>
-        console.error('[state] students_state(legacy) write failed:', err),
-      )
+        console.error('[state] students_state(legacy) write failed:', err))
     }
   }
 
@@ -307,120 +249,268 @@ class StudentsHybridStore {
   }
 }
 
-const studentsStore = new StudentsHybridStore()
+/* ── 비-divine 반용 단순 학생 스토어 ── */
 
-export function useNotices() {
-  const value = useSyncExternalStore<Notice[]>(noticesStore.subscribe, noticesStore.get, () => [])
-  return [value, noticesStore.set] as const
-}
-
-export function useOfferings() {
-  const value = useSyncExternalStore<Offering[]>(offeringsStore.subscribe, offeringsStore.get, () => [])
-  return [value, offeringsStore.set] as const
-}
-
-export function useCustomTitles() {
-  const value = useSyncExternalStore(titlesStore.subscribe, titlesStore.get, () => DEFAULT_CUSTOM_TITLES)
-  return [value, titlesStore.set] as const
-}
-
-export function useMissions() {
-  const value = useSyncExternalStore(missionsStore.subscribe, missionsStore.get, () => DEFAULT_MISSIONS)
-  return [value, missionsStore.set] as const
-}
-
-export function useAgoraTopics() {
-  const value = useSyncExternalStore(agoraTopicsStore.subscribe, agoraTopicsStore.get, () => DEFAULT_AGORA_TOPICS)
-  return [value, agoraTopicsStore.set] as const
-}
-
-export function useAgoraPosts() {
-  const value = useSyncExternalStore<AgoraPost[]>(agoraPostsStore.subscribe, agoraPostsStore.get, () => [])
-  return [value, agoraPostsStore.set] as const
-}
-
-// 명단 (학급관리에서 추가/삭제 가능). Firestore에 저장됨.
-export function useRoster() {
-  return useSyncExternalStore(rosterStore.subscribe, rosterStore.get, () => MOCK_STUDENTS)
-}
-export const setRoster = rosterStore.set
-export const currentRoster = (): Student[] => rosterStore.get()
-
-/* ──────────────── 학생 구글 계정 ↔ 학생 코드 매핑 ────────────────
- * key: 이메일(소문자) → value: 학생 코드 (예: "god01")
- * 학생이 처음 구글 로그인할 때 본인 코드를 입력해 매핑을 만들고, 다음부터 자동 입장.
- */
-export function useStudentEmailMap() {
-  const value = useSyncExternalStore<Record<string, string>>(
-    studentEmailMapStore.subscribe, studentEmailMapStore.get, () => ({}),
-  )
-  return [value, studentEmailMapStore.set] as const
-}
-export const currentStudentEmailMap = (): Record<string, string> => studentEmailMapStore.get()
-export const setStudentEmailMap = studentEmailMapStore.set
-
-/* ──────────────── 오늘의 일력 명언 (교사 선정) ──────────────── */
-export function useDailyFeature() {
-  return useSyncExternalStore<DailyFeature | null>(dailyFeatureStore.subscribe, dailyFeatureStore.get, () => null)
-}
-export const setDailyFeature = dailyFeatureStore.set
-
-/* ──────────────── 미니룸 모둠 (교사 지정) ──────────────── */
-export function useMiniGroups() {
-  return useSyncExternalStore<MiniGroup[]>(miniGroupsStore.subscribe, miniGroupsStore.get, () => [])
-}
-export const setMiniGroups = miniGroupsStore.set
-export const currentMiniGroups = (): MiniGroup[] => miniGroupsStore.get()
-
-/* ──────────────── 학생 입장 신청 (승인 대기열) ────────────────
- * /join_requests/{email} 컬렉션. 학생은 자기 이메일 문서만 작성하고,
- * 교사가 승인하면 student_email_map에 매핑이 확정된 뒤 신청이 삭제된다.
- * 데이터(students_v2/{sid})는 자리(sid)에 묶여 있으므로 이메일이 바뀌어도 보존된다.
- */
-class JoinRequestsStore {
+class SimpleStudentsStore {
   private listeners = new Set<Listener>()
-  private snapshot: Record<string, JoinRequest> = {}
-  private colRef: CollectionReference = collection(db, 'join_requests')
-  private unsub: (() => void) | null = null
-  private authUnsub: (() => void) | null = null
+  private snapshot: StudentStateMap = {}
+  private colRef: CollectionReference
+  private cacheKey: string
+  private listening = false
 
-  // 첫 구독 시에만 컬렉션 전체를 리슨한다(전체 list 권한은 교사만 — 교사 화면에서만 마운트됨).
-  private startListening() {
-    if (this.unsub) return
+  constructor(private classId: string) {
+    this.cacheKey = `class.${classId}.students`
+    this.colRef = collection(db, 'classes', classId, 'students_v2')
     try {
-      this.unsub = onSnapshot(
-        this.colRef,
-        snap => {
-          const m: Record<string, JoinRequest> = {}
-          snap.forEach(d => { m[d.id] = d.data() as JoinRequest })
-          this.snapshot = m
-          this.notify()
-        },
-        err => console.error('[state] join_requests listen error:', err),
-      )
-    } catch (e) {
-      console.error('[state] join_requests onSnapshot setup:', e)
-    }
+      const raw = localStorage.getItem(this.cacheKey)
+      if (raw) this.snapshot = JSON.parse(raw) as StudentStateMap
+    } catch {}
+    onSignedIn(() => this.startListening())
+  }
+
+  private startListening() {
+    if (this.listening) return
+    this.listening = true
+    try {
+      onSnapshot(this.colRef, snap => {
+        const map: StudentStateMap = {}
+        snap.forEach(d => { map[d.id] = d.data() as StudentState })
+        this.snapshot = map
+        try { localStorage.setItem(this.cacheKey, JSON.stringify(map)) } catch {}
+        this.notify()
+      }, err => console.error(`[state] ${this.classId} students listen error:`, err))
+    } catch (e) { console.error(`[state] ${this.classId} students onSnapshot setup:`, e) }
   }
 
   private notify() { this.listeners.forEach(l => l()) }
+  get = (): StudentStateMap => this.snapshot
 
-  get = (): Record<string, JoinRequest> => this.snapshot
+  set = (
+    updater: StudentStateMap | ((prev: StudentStateMap) => StudentStateMap),
+    onError?: (e: unknown) => void,
+  ) => {
+    const prev = this.snapshot
+    const next = typeof updater === 'function' ? (updater as (p: StudentStateMap) => StudentStateMap)(prev) : updater
+    this.snapshot = next
+    try { localStorage.setItem(this.cacheKey, JSON.stringify(next)) } catch {}
+    this.notify()
+
+    const prevKeys = new Set(Object.keys(prev))
+    const nextKeys = new Set(Object.keys(next))
+    const ops: Promise<unknown>[] = []
+    for (const sid of nextKeys) {
+      if (prev[sid] !== next[sid])
+        ops.push(setDoc(doc(this.colRef, sid), stripUndefined(next[sid]) as unknown as Record<string, unknown>))
+    }
+    for (const sid of prevKeys) {
+      if (!nextKeys.has(sid)) ops.push(deleteDoc(doc(this.colRef, sid)))
+    }
+    Promise.all(ops).catch(err => {
+      console.error(`[state] ${this.classId} students write failed:`, err)
+      onError?.(err)
+    })
+  }
 
   subscribe = (l: Listener) => {
     this.listeners.add(l)
-    // 로그인(교사) 이후에 컬렉션 구독을 시작한다.
-    if (!this.authUnsub) this.authUnsub = onSignedIn(() => this.startListening())
     return () => { this.listeners.delete(l) }
   }
 }
-const joinRequestsStore = new JoinRequestsStore()
 
-/** 구글 세션으로 student_email_map을 직접 읽어, 이 이메일에 매핑된 자리(sid)를 반환. 없으면 null.
- *  스토어 구독 타이밍과 무관하게 항상 최신 매핑을 확인할 수 있다. */
-export async function getMappedSid(email: string): Promise<string | null> {
+/* ── 입장 신청 스토어 ── */
+
+class JoinRequestsStore {
+  private listeners = new Set<Listener>()
+  private snapshot: Record<string, JoinRequest> = {}
+  private unsub: (() => void) | null = null
+
+  constructor(private colRef: CollectionReference) {}
+
+  startListening() {
+    if (this.unsub) return
+    try {
+      this.unsub = onSnapshot(this.colRef, snap => {
+        const m: Record<string, JoinRequest> = {}
+        snap.forEach(d => { m[d.id] = d.data() as JoinRequest })
+        this.snapshot = m
+        this.notify()
+      }, err => console.error('[state] join_requests listen error:', err))
+    } catch (e) { console.error('[state] join_requests onSnapshot setup:', e) }
+  }
+
+  private notify() { this.listeners.forEach(l => l()) }
+  get = (): Record<string, JoinRequest> => this.snapshot
+  subscribe = (l: Listener) => {
+    this.listeners.add(l)
+    return () => { this.listeners.delete(l) }
+  }
+}
+
+const divineJoinRequestsStore = new JoinRequestsStore(collection(db, 'join_requests'))
+onSignedIn(() => divineJoinRequestsStore.startListening())
+
+const divineStudentsStore = new StudentsHybridStore(() => rosterStore.get())
+
+/* ── divine ClassStores 등록 ── */
+
+const divineShapeStores: ClassStoresShape = {
+  classId: DIVINE_CLASS_ID,
+  notices: noticesStore,
+  offerings: offeringsStore,
+  titles: titlesStore,
+  missions: missionsStore,
+  agoraTopics: agoraTopicsStore,
+  agoraPosts: agoraPostsStore,
+  roster: rosterStore,
+  studentEmailMap: studentEmailMapStore,
+  dailyFeature: dailyFeatureStore,
+  miniGroups: miniGroupsStore,
+  students: divineStudentsStore,
+  joinRequests: divineJoinRequestsStore,
+}
+registerDivineStores(divineShapeStores)
+
+/* ── 비-divine 클래스 스토어 팩토리 + 레지스트리 ── */
+
+const classStoresRegistry = new Map<string, ClassStoresShape>()
+classStoresRegistry.set(DIVINE_CLASS_ID, divineShapeStores)
+
+export function getOrCreateClassStores(classId: string): ClassStoresShape {
+  if (classStoresRegistry.has(classId)) return classStoresRegistry.get(classId)!
+  const stateDoc = (key: string) => doc(db, 'classes', classId, 'state', key)
+  const classRoster = new Store<Student[]>(`class.${classId}.roster`, [], stateDoc('roster'))
+  const classEmailMap = new Store<Record<string, string>>(`class.${classId}.emailmap`, {}, stateDoc('student_email_map'))
+  const classJoinReqs = new JoinRequestsStore(collection(db, 'classes', classId, 'join_requests'))
+  onSignedIn(() => classJoinReqs.startListening())
+
+  const stores: ClassStoresShape = {
+    classId,
+    notices:     new Store<Notice[]>(`class.${classId}.notices`, [], stateDoc('notices')),
+    offerings:   new Store<Offering[]>(`class.${classId}.offerings`, [], stateDoc('offerings')),
+    titles:      new Store<CustomTitle[]>(`class.${classId}.titles`, DEFAULT_CUSTOM_TITLES, stateDoc('titles')),
+    missions:    new Store<Mission[]>(`class.${classId}.missions`, DEFAULT_MISSIONS, stateDoc('missions')),
+    agoraTopics: new Store<AgoraTopic[]>(`class.${classId}.agora_topics`, DEFAULT_AGORA_TOPICS, stateDoc('agora_topics')),
+    agoraPosts:  new Store<AgoraPost[]>(`class.${classId}.agora_posts`, [], stateDoc('agora_posts')),
+    roster:      classRoster,
+    studentEmailMap: classEmailMap,
+    dailyFeature: new Store<DailyFeature | null>(`class.${classId}.daily_feature`, null, stateDoc('daily_feature')),
+    miniGroups:  new Store<MiniGroup[]>(`class.${classId}.miniroom_groups`, [], stateDoc('miniroom_groups')),
+    students:    new SimpleStudentsStore(classId),
+    joinRequests: classJoinReqs,
+  }
+  classStoresRegistry.set(classId, stores)
+  return stores
+}
+
+/* ── 액티브 스토어 참조 (비-hook 함수용) ── */
+
+let _activeStores: ClassStoresShape = divineShapeStores
+export function setActiveClassStores(stores: ClassStoresShape) {
+  _activeStores = stores
+}
+
+/* ── Context-aware hooks (useContext + module-level fallback) ── */
+
+function useStores(): ClassStoresShape {
+  const ctx = useContext(ClassStoresContext)
+  return ctx ?? _activeStores
+}
+
+export function useNotices() {
+  const { notices } = useStores()
+  const value = useSyncExternalStore<Notice[]>(notices.subscribe, notices.get, () => [])
+  return [value, notices.set] as const
+}
+export function useOfferings() {
+  const { offerings } = useStores()
+  const value = useSyncExternalStore<Offering[]>(offerings.subscribe, offerings.get, () => [])
+  return [value, offerings.set] as const
+}
+export function useCustomTitles() {
+  const { titles } = useStores()
+  const value = useSyncExternalStore(titles.subscribe, titles.get, () => DEFAULT_CUSTOM_TITLES)
+  return [value, titles.set] as const
+}
+export function useMissions() {
+  const { missions } = useStores()
+  const value = useSyncExternalStore(missions.subscribe, missions.get, () => DEFAULT_MISSIONS)
+  return [value, missions.set] as const
+}
+export function useAgoraTopics() {
+  const { agoraTopics } = useStores()
+  const value = useSyncExternalStore(agoraTopics.subscribe, agoraTopics.get, () => DEFAULT_AGORA_TOPICS)
+  return [value, agoraTopics.set] as const
+}
+export function useAgoraPosts() {
+  const { agoraPosts } = useStores()
+  const value = useSyncExternalStore<AgoraPost[]>(agoraPosts.subscribe, agoraPosts.get, () => [])
+  return [value, agoraPosts.set] as const
+}
+
+export function useRoster() {
+  const { roster } = useStores()
+  return useSyncExternalStore(roster.subscribe, roster.get, () => MOCK_STUDENTS)
+}
+export function setRoster(updater: Student[] | ((prev: Student[]) => Student[]), onError?: (e: unknown) => void) {
+  _activeStores.roster.set(updater, onError)
+}
+export function currentRoster(): Student[] {
+  return _activeStores.roster.get()
+}
+
+export function useStudentEmailMap() {
+  const { studentEmailMap } = useStores()
+  const value = useSyncExternalStore<Record<string, string>>(
+    studentEmailMap.subscribe, studentEmailMap.get, () => ({}),
+  )
+  return [value, studentEmailMap.set] as const
+}
+export function currentStudentEmailMap(): Record<string, string> {
+  return _activeStores.studentEmailMap.get()
+}
+export function setStudentEmailMap(
+  updater: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>),
+  onError?: (e: unknown) => void,
+) {
+  _activeStores.studentEmailMap.set(updater, onError)
+}
+
+export function useDailyFeature() {
+  const { dailyFeature } = useStores()
+  return useSyncExternalStore<DailyFeature | null>(dailyFeature.subscribe, dailyFeature.get, () => null)
+}
+export function setDailyFeature(
+  updater: DailyFeature | null | ((prev: DailyFeature | null) => DailyFeature | null),
+  onError?: (e: unknown) => void,
+) {
+  _activeStores.dailyFeature.set(updater, onError)
+}
+
+export function useMiniGroups() {
+  const { miniGroups } = useStores()
+  return useSyncExternalStore<MiniGroup[]>(miniGroups.subscribe, miniGroups.get, () => [])
+}
+export function setMiniGroups(updater: MiniGroup[] | ((prev: MiniGroup[]) => MiniGroup[]), onError?: (e: unknown) => void) {
+  _activeStores.miniGroups.set(updater, onError)
+}
+export function currentMiniGroups(): MiniGroup[] {
+  return _activeStores.miniGroups.get()
+}
+
+/* ── 입장 신청 ── */
+
+export function useJoinRequests(): Record<string, JoinRequest> {
+  const { joinRequests } = useStores()
+  return useSyncExternalStore(joinRequests.subscribe, joinRequests.get, () => ({}))
+}
+
+export async function getMappedSid(email: string, classId?: string): Promise<string | null> {
   try {
-    const snap = await getDoc(doc(db, 'state', 'student_email_map'))
+    const cid = classId ?? _activeStores.classId
+    const docRef = cid === DIVINE_CLASS_ID
+      ? doc(db, 'state', 'student_email_map')
+      : doc(db, 'classes', cid, 'state', 'student_email_map')
+    const snap = await getDoc(docRef)
     const map = (snap.exists() ? (snap.data()?.value as Record<string, string>) : null) ?? {}
     return map[email] ?? null
   } catch (e) {
@@ -429,20 +519,21 @@ export async function getMappedSid(email: string): Promise<string | null> {
   }
 }
 
-/** 교사용 — 대기 중인 입장 신청 전체 구독. */
-export function useJoinRequests(): Record<string, JoinRequest> {
-  return useSyncExternalStore(joinRequestsStore.subscribe, joinRequestsStore.get, () => ({}))
+export async function submitJoinRequest(req: JoinRequest, classId?: string): Promise<void> {
+  const cid = classId ?? _activeStores.classId
+  const docRef = cid === DIVINE_CLASS_ID
+    ? doc(db, 'join_requests', req.email)
+    : doc(db, 'classes', cid, 'join_requests', req.email)
+  await setDoc(docRef, stripUndefined(req) as unknown as Record<string, unknown>)
 }
 
-/** 학생용 — 입장 신청 제출(본인 이메일 문서). */
-export async function submitJoinRequest(req: JoinRequest): Promise<void> {
-  await setDoc(doc(db, 'join_requests', req.email), stripUndefined(req) as unknown as Record<string, unknown>)
-}
-
-/** 학생용 — 본인 신청을 직접 조회(대기 중인지 확인). 없으면 null. */
-export async function getMyJoinRequest(email: string): Promise<JoinRequest | null> {
+export async function getMyJoinRequest(email: string, classId?: string): Promise<JoinRequest | null> {
   try {
-    const snap = await getDoc(doc(db, 'join_requests', email))
+    const cid = classId ?? _activeStores.classId
+    const docRef = cid === DIVINE_CLASS_ID
+      ? doc(db, 'join_requests', email)
+      : doc(db, 'classes', cid, 'join_requests', email)
+    const snap = await getDoc(docRef)
     return snap.exists() ? (snap.data() as JoinRequest) : null
   } catch (e) {
     console.error('[state] getMyJoinRequest failed:', e)
@@ -450,45 +541,44 @@ export async function getMyJoinRequest(email: string): Promise<JoinRequest | nul
   }
 }
 
-/**
- * 교사용 — 입장 승인. 매핑을 확정하고 신청을 삭제한다.
- * 같은 자리(sid)를 쓰던 기존 이메일과 같은 이메일의 기존 자리는 자동으로 정리(재지정)된다.
- * → 데이터(students_v2/{sid})는 그대로 두고 "출입 열쇠"만 교체한다.
- */
 export async function approveJoinRequest(req: JoinRequest): Promise<void> {
   setStudentEmailMap(prev => {
     const next: Record<string, string> = {}
     for (const [em, sid] of Object.entries(prev)) {
-      if (sid === req.studentId) continue   // 이 자리에 묶인 기존 열쇠 회수
-      if (em === req.email) continue          // 이 이메일의 기존 자리 해제
+      if (sid === req.studentId) continue
+      if (em === req.email) continue
       next[em] = sid
     }
     next[req.email] = req.studentId
     return next
   })
-  await deleteDoc(doc(db, 'join_requests', req.email)).catch(e =>
-    console.error('[state] approve: delete request failed:', e))
+  const cid = _activeStores.classId
+  const docRef = cid === DIVINE_CLASS_ID
+    ? doc(db, 'join_requests', req.email)
+    : doc(db, 'classes', cid, 'join_requests', req.email)
+  await deleteDoc(docRef).catch(e => console.error('[state] approve: delete request failed:', e))
 }
 
-/** 교사용 — 입장 거절. 신청만 삭제한다. */
 export async function rejectJoinRequest(email: string): Promise<void> {
-  await deleteDoc(doc(db, 'join_requests', email)).catch(e =>
-    console.error('[state] reject failed:', e))
+  const cid = _activeStores.classId
+  const docRef = cid === DIVINE_CLASS_ID
+    ? doc(db, 'join_requests', email)
+    : doc(db, 'classes', cid, 'join_requests', email)
+  await deleteDoc(docRef).catch(e => console.error('[state] reject failed:', e))
 }
+
+/* ── 학생 상태 훅 ── */
+
+const emptyState = (): StudentState => ({
+  ownedItemIds: [], ownedTitleIds: [], missions: [], sanctuary: [],
+})
 
 export function useStudentStateMap() {
-  const map = useSyncExternalStore<StudentStateMap>(studentsStore.subscribe, studentsStore.get, () => ({} as StudentStateMap))
-  const setMap = studentsStore.set
-
-  const emptyState = (): StudentState => ({
-    ownedItemIds: [],
-    ownedTitleIds: [],
-    missions: [],
-    sanctuary: [],
-  })
+  const { students } = useStores()
+  const map = useSyncExternalStore<StudentStateMap>(students.subscribe, students.get, () => ({} as StudentStateMap))
+  const setMap = students.set
 
   const get = useCallback((id: string): StudentState => map[id] ?? emptyState(), [map])
-
   const update = useCallback((id: string, updater: (s: StudentState) => StudentState, onError?: (e: unknown) => void) => {
     setMap(prev => {
       const cur = prev[id] ?? emptyState()
@@ -499,18 +589,14 @@ export function useStudentStateMap() {
   return { map, setMap, get, update } as const
 }
 
+/* ── 쿠키 / XP / 기타 헬퍼 (비-hook) ── */
+
 export function effectiveCookies(studentId: string, map: StudentStateMap): number {
-  const base = rosterStore.get().find(s => s.id === studentId)?.cookies ?? 0
+  const base = _activeStores.roster.get().find(s => s.id === studentId)?.cookies ?? 0
   const ov = map[studentId]?.cookies
   return ov ?? base
 }
 
-/** 누적(평생) 쿠키.
- *  - 상점 구매로는 줄지 않음 (purchaseShopItem이 lifetime을 건드리지 않음).
- *  - 교사 쿠키 조정으로는 +/- 양쪽 모두 반영됨.
- *  - 데이터 정합성: 최소한 (현재 잔액 + 지금까지 상점에서 쓴 쿠키 합) 이상이어야 한다.
- *    과거 race로 stored 값이 작아진 경우를 자동 보정한다.
- */
 export function lifetimeCookiesOf(studentId: string, map: StudentStateMap): number {
   const cur = map[studentId]
   const cookies = effectiveCookies(studentId, map)
@@ -520,82 +606,54 @@ export function lifetimeCookiesOf(studentId: string, map: StudentStateMap): numb
   return Math.max(cur.lifetimeCookies ?? cookies, minimum)
 }
 
-/** 쿠키 획득. cookies(잔액) + lifetimeCookies(누적) 둘 다 증가. */
 export function gainCookies(sid: string, amount: number) {
   if (!sid || !amount) return
-  studentsStore.set(prev => {
+  _activeStores.students.set(prev => {
     const cur = prev[sid] ?? emptyState()
-    const baseCookies = rosterStore.get().find(s => s.id === sid)?.cookies ?? 0
+    const baseCookies = _activeStores.roster.get().find(s => s.id === sid)?.cookies ?? 0
     const oldCookies = cur.cookies ?? baseCookies
     const oldLife    = cur.lifetimeCookies ?? oldCookies
-    return {
-      ...prev,
-      [sid]: {
-        ...cur,
-        cookies: oldCookies + amount,
-        lifetimeCookies: oldLife + amount,
-      },
-    }
+    return { ...prev, [sid]: { ...cur, cookies: oldCookies + amount, lifetimeCookies: oldLife + amount } }
   })
 }
 
-/** 쿠키 차감 (상점 구매). 잔액만 감소, 누적은 그대로. 잔액 부족이면 false 반환. */
 export function spendCookies(sid: string, amount: number): boolean {
   if (!sid || amount <= 0) return false
-  const cur = studentsStore.get()[sid] ?? emptyState()
-  const baseCookies = rosterStore.get().find(s => s.id === sid)?.cookies ?? 0
-  const oldCookies = cur.cookies ?? baseCookies
-  if (oldCookies < amount) return false
-  studentsStore.set(prev => {
+  const cur = _activeStores.students.get()[sid] ?? emptyState()
+  const baseCookies = _activeStores.roster.get().find(s => s.id === sid)?.cookies ?? 0
+  if ((cur.cookies ?? baseCookies) < amount) return false
+  _activeStores.students.set(prev => {
     const c = prev[sid] ?? emptyState()
-    const base = rosterStore.get().find(s => s.id === sid)?.cookies ?? 0
+    const base = _activeStores.roster.get().find(s => s.id === sid)?.cookies ?? 0
     const oc = c.cookies ?? base
-    const ol = c.lifetimeCookies ?? oc
-    return {
-      ...prev,
-      [sid]: {
-        ...c,
-        cookies: Math.max(0, oc - amount),
-        lifetimeCookies: ol,                  // 누적은 유지
-      },
-    }
+    return { ...prev, [sid]: { ...c, cookies: Math.max(0, oc - amount) } }
   })
   return true
 }
 
-/** 상점 구매 기록. cost 만큼 차감 + 구매 이력에 추가. 성공 여부 반환.
- *
- * 한 번의 set 호출로 차감과 기록 추가를 동시에 처리한다.
- * 학생별 문서 분리 후엔 set마다 별도 Firestore write가 발사되므로,
- * 두 번 나눠 쓰면 동시 write 도착 순서에 따라 purchases가 덮어써져 사라지는 race condition이 있었다.
- */
 export function purchaseShopItem(sid: string, item: { id: string; name: string; icon?: string; cost: number }): boolean {
   if (!sid || item.cost <= 0) return false
-  const cur = studentsStore.get()[sid] ?? emptyState()
-  const baseCookies = rosterStore.get().find(s => s.id === sid)?.cookies ?? 0
-  const oldCookies = cur.cookies ?? baseCookies
-  if (oldCookies < item.cost) return false
+  const cur = _activeStores.students.get()[sid] ?? emptyState()
+  const baseCookies = _activeStores.roster.get().find(s => s.id === sid)?.cookies ?? 0
+  if ((cur.cookies ?? baseCookies) < item.cost) return false
 
-  studentsStore.set(prev => {
+  _activeStores.students.set(prev => {
     const c = prev[sid] ?? emptyState()
-    const base = rosterStore.get().find(s => s.id === sid)?.cookies ?? 0
+    const base = _activeStores.roster.get().find(s => s.id === sid)?.cookies ?? 0
     const oc = c.cookies ?? base
-    if (oc < item.cost) return prev  // 동시 호출 방어
+    if (oc < item.cost) return prev
     const ol = c.lifetimeCookies ?? oc
     return {
       ...prev,
       [sid]: {
         ...c,
         cookies: Math.max(0, oc - item.cost),
-        lifetimeCookies: ol,  // 누적 유지
+        lifetimeCookies: ol,
         purchases: [
           ...(c.purchases ?? []),
           {
             id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            itemId: item.id,
-            itemName: item.name,
-            icon: item.icon,
-            cost: item.cost,
+            itemId: item.id, itemName: item.name, icon: item.icon, cost: item.cost,
             purchasedAt: new Date().toISOString(),
           },
         ],
@@ -605,17 +663,10 @@ export function purchaseShopItem(sid: string, item: { id: string; name: string; 
   return true
 }
 
-/* ──────────────── 레벨/XP 헬퍼 ──────────────── */
-
-const emptyState = (): StudentState => ({
-  ownedItemIds: [], ownedTitleIds: [], missions: [], sanctuary: [],
-})
-
-/** XP 누적. 레벨업 시 잠금해제 테마/아이템을 자동으로 추가. 마지막 새 레벨을 반환 (없으면 null). */
 export function gainXp(sid: string, amount: number): { from: number; to: number } | null {
   if (!sid || !amount) return null
   let result: { from: number; to: number } | null = null
-  studentsStore.set(prev => {
+  _activeStores.students.set(prev => {
     const cur = prev[sid] ?? emptyState()
     const oldXp = cur.xp ?? 0
     const newXp = Math.max(0, oldXp + amount)
@@ -635,28 +686,19 @@ export function gainXp(sid: string, amount: number): { from: number; to: number 
   return result
 }
 
-/** 학생이 매일 1회 받을 수 있는 제물 송가. 오늘 이미 받았으면 null 반환. */
 export function claimDailyOffering(sid: string, today: string, itemId: string): boolean {
-  const cur = studentsStore.get()[sid] ?? emptyState()
+  const cur = _activeStores.students.get()[sid] ?? emptyState()
   if (cur.lastOfferingAt === today) return false
-  studentsStore.set(prev => {
+  _activeStores.students.set(prev => {
     const c = prev[sid] ?? emptyState()
     if (c.lastOfferingAt === today) return prev
-    return {
-      ...prev,
-      [sid]: {
-        ...c,
-        lastOfferingAt: today,
-        ownedItemIds: [...c.ownedItemIds, itemId],
-      }
-    }
+    return { ...prev, [sid]: { ...c, lastOfferingAt: today, ownedItemIds: [...c.ownedItemIds, itemId] } }
   })
   return true
 }
 
-/** 학생의 현재 레벨 정보 반환. */
 export function studentLevelInfo(sid: string) {
-  const cur = studentsStore.get()[sid] ?? emptyState()
+  const cur = _activeStores.students.get()[sid] ?? emptyState()
   const info = levelFromXp(cur.xp ?? 0)
   return { ...info, xp: cur.xp ?? 0 }
 }

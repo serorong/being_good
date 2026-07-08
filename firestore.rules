@@ -1,18 +1,21 @@
 rules_version = '2';
 
-// 신의반 — Firestore 보안 규칙
-// 2단계 보안 (학생 본인 검증 추가):
-//   - 모든 사용자: 인증 필요 (request.auth != null) — 익명 또는 구글
-//   - 학급 전체 데이터(/state/*) 쓰기: 화이트리스트의 교사 이메일만 허용
-//   - 입장 신청(/join_requests/{email}): 본인 이메일 문서만 작성, 교사는 전체 조회/삭제
-//   - 학생 상태(/students_v2/{sid}): 교사 또는 "그 자리에 매핑된 본인"만 쓰기
+// 다정초 마음마을 교실 — Firestore 보안 규칙
 //
-// 신원 모델:
-//   - 데이터는 학생 자리(sid, 예: god01)에 묶여 영구 저장된다.
-//   - 이메일↔sid 매핑(/state/student_email_map { value: { email: sid } })은 "출입 열쇠"일 뿐.
-//   - 매핑은 교사 승인 시에만 기록되므로, 학생이 임의로 남의 자리에 들어갈 수 없다.
+// [divine 클래스] 기존 루트 경로 — 절대 변경 없음:
+//   /state/*           학급 공유 데이터 (알림장, 명단 등)
+//   /students_v2/{sid} 학생 개인 상태
+//   /join_requests/*   입장 신청
 //
-// 교사 화이트리스트는 코드(src/data.ts)와 동일하게 유지해야 함.
+// [새 클래스] /classes/{classId}/ 하위 경로:
+//   /classes/{classId}                    클래스 summary (teacherEmail 쿼리용)
+//   /classes/{classId}/info/data          클래스 상세 설정 (ClassInfo)
+//   /classes/{classId}/state/*            학급 공유 데이터
+//   /classes/{classId}/students_v2/{sid}  학생 개인 상태
+//   /classes/{classId}/join_requests/*    입장 신청
+//
+// 교사 화이트리스트(divine 전용)는 src/data.ts TEACHER_EMAILS와 동일하게 유지할 것.
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -24,6 +27,7 @@ service cloud.firestore {
       return request.auth.token.email;
     }
 
+    // divine 클래스 교사 화이트리스트
     function isTeacher() {
       return request.auth != null
         && request.auth.token.email_verified == true
@@ -39,44 +43,100 @@ service cloud.firestore {
         ];
     }
 
-    // 내 이메일에 매핑된 학생 자리(sid)를 반환. 매핑 없으면 null.
+    // 다정초 도메인 이메일 여부 (새 클래스 교사 개설 자격)
+    function isDajeongEmail() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && (request.auth.token.email.matches('.*@dajeong\\.sjedues\\.kr') || isTeacher());
+    }
+
+    // 특정 클래스의 담임 교사인지 확인
+    function isTeacherOfClass(classId) {
+      return isAuthed()
+        && exists(/databases/$(database)/documents/classes/$(classId))
+        && get(/databases/$(database)/documents/classes/$(classId)).data.teacherEmail == myEmail();
+    }
+
+    // divine: 내 이메일에 매핑된 학생 자리(sid)
     function mappedSid() {
       return exists(/databases/$(database)/documents/state/student_email_map)
         ? get(/databases/$(database)/documents/state/student_email_map).data.value[myEmail()]
         : null;
     }
 
-    // 학급 전체 공유 데이터 — 모두 읽기 / 교사만 쓰기
+    // 새 클래스: 내 이메일에 매핑된 학생 자리(sid)
+    function classMappedSid(classId) {
+      return exists(/databases/$(database)/documents/classes/$(classId)/state/student_email_map)
+        ? get(/databases/$(database)/documents/classes/$(classId)/state/student_email_map).data.value[myEmail()]
+        : null;
+    }
+
+    /* ── divine 클래스 (루트 경로 — 변경 없음) ── */
+
     match /state/{document=**} {
       allow read:  if isAuthed();
       allow write: if isTeacher();
     }
 
-    // 입장 신청 — 본인 이메일 문서만 작성/조회/취소, 교사는 전체 조회/삭제(승인 처리)
     match /join_requests/{email} {
-      allow get:           if isTeacher() || (isAuthed() && myEmail() == email);
-      allow list:          if isTeacher();
-      allow create, update: if isAuthed()
-                              && myEmail() == email
-                              && request.resource.data.email == email;
-      allow delete:        if isTeacher() || (isAuthed() && myEmail() == email);
+      allow get:            if isTeacher() || (isAuthed() && myEmail() == email);
+      allow list:           if isTeacher();
+      allow create, update: if isAuthed() && myEmail() == email && request.resource.data.email == email;
+      allow delete:         if isTeacher() || (isAuthed() && myEmail() == email);
     }
 
-    // 학생 상태 — 모두 읽기 / 교사 또는 "그 자리에 매핑된 본인"만 쓰기
     match /students_v2/{sid} {
       allow read:  if isAuthed();
       allow write: if isTeacher() || (isAuthed() && mappedSid() == sid);
     }
 
-    // 미니룸 선물(액자 그림) — 로그인하면 읽기.
-    //  생성: 보낸 사람이 본인(fromSid==내 자리)일 때만(교사 제외 — 교사는 선물 안 보냄).
-    //  삭제: 교사, 받는 사람(toSid), 보낸 사람(fromSid).  (수정 없음)
     match /gifts/{id} {
       allow read:   if isAuthed();
       allow create: if isAuthed() && request.resource.data.fromSid == mappedSid();
       allow delete: if isTeacher()
                       || mappedSid() == resource.data.toSid
                       || mappedSid() == resource.data.fromSid;
+    }
+
+    /* ── 새 클래스 ── */
+
+    // 클래스 summary 문서 (/classes/{classId})
+    // 읽기: 모두 (학생이 반 목록 조회용)
+    // 생성: 다정초 이메일이며 teacherEmail == 본인
+    // 수정/삭제: 해당 클래스 담임만
+    match /classes/{classId} {
+      allow read: if isAuthed();
+      allow create: if isDajeongEmail()
+                      && request.resource.data.teacherEmail == myEmail();
+      allow update, delete: if isTeacherOfClass(classId);
+    }
+
+    // 클래스 info/data 문서
+    match /classes/{classId}/info/{doc} {
+      allow read: if isAuthed();
+      allow write: if isTeacherOfClass(classId)
+                     || (isDajeongEmail() && doc == 'data'
+                         && request.resource.data.teacherEmail == myEmail());
+    }
+
+    // 클래스 공유 상태 데이터
+    match /classes/{classId}/state/{document=**} {
+      allow read:  if isAuthed();
+      allow write: if isTeacherOfClass(classId);
+    }
+
+    // 클래스 학생 상태
+    match /classes/{classId}/students_v2/{sid} {
+      allow read:  if isAuthed();
+      allow write: if isTeacherOfClass(classId) || (isAuthed() && classMappedSid(classId) == sid);
+    }
+
+    // 클래스 입장 신청
+    match /classes/{classId}/join_requests/{email} {
+      allow get:            if isTeacherOfClass(classId) || (isAuthed() && myEmail() == email);
+      allow list:           if isTeacherOfClass(classId);
+      allow create, update: if isAuthed() && myEmail() == email && request.resource.data.email == email;
+      allow delete:         if isTeacherOfClass(classId) || (isAuthed() && myEmail() == email);
     }
   }
 }

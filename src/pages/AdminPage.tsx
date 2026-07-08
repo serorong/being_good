@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { avatarUrl, todayStr } from '../data'
 import { approveJoinRequest, effectiveCookies, rejectJoinRequest, setDailyFeature, useAgoraPosts, useAgoraTopics, useCustomTitles, useDailyFeature, useJoinRequests, useMissions, useNotices, useOfferings, useRoster, useStudentEmailMap, useStudentStateMap, setRoster } from '../state'
-import type { AgoraTopic, AgoraVisibility, CustomTitle, DiaryEntry, JoinRequest, Mission, Notice, Offering, TitleColor } from '../types'
+import type { AgoraTopic, AgoraVisibility, ClassTerms, CustomTitle, DiaryEntry, JoinRequest, MenuConfig, Mission, Notice, Offering, TitleColor } from '../types'
+import { useClassInfo } from '../ClassContext'
 
 const COLORS: TitleColor[] = ['gold', 'blue', 'green', 'rose']
 const COLOR_LABEL: Record<TitleColor, string> = { gold: '황금', blue: '하늘', green: '월계', rose: '장미' }
 
 type AdminMenuKey =
-  | 'approvals' | 'daily' | 'notices' | 'offerings' | 'roster' | 'missions'
-  | 'agora'     | 'diaries' | 'titles' | 'cookies'  | 'shop'   | 'cleanup'
+  | 'classSettings' | 'approvals' | 'daily' | 'notices' | 'offerings' | 'roster' | 'missions'
+  | 'agora'         | 'diaries'   | 'titles' | 'cookies' | 'shop'      | 'cleanup'
 
 const MENU: Array<{ key: AdminMenuKey; icon: string; label: string; desc: string }> = [
+  { key: 'classSettings', icon: '⚙️', label: '반 설정',     desc: '반 이름·용어·메뉴 표시 설정' },
   { key: 'approvals', icon: '🗝️', label: '입장 승인',   desc: '학생이 신청한 구글 계정 연결을 승인' },
   { key: 'daily',     icon: '📅', label: '일력 선정',   desc: '오늘 홈에 보일 명언/일력을 정해요' },
   { key: 'notices',   icon: '📋', label: '알림장',     desc: '학생 「신전 현황」 상단에 표시되는 공지' },
@@ -84,6 +86,7 @@ export default function AdminPage() {
               <span className="text-xs text-moss-deep/70 hidden sm:block">{current.desc}</span>
             </div>
             <div className="p-4 sm:p-5">
+              {active === 'classSettings' && <ClassSettingsSection />}
               {active === 'approvals' && <ApprovalsSection />}
               {active === 'daily'     && <DailyFeatureSection />}
               {active === 'notices'   && <NoticesSection />}
@@ -2422,3 +2425,110 @@ ${topicSections}
   )
 }
 
+
+/* ──────────────── 반 설정 (ClassSettingsSection) ──────────────── */
+function ClassSettingsSection() {
+  const { classInfo, updateTerms, updateMenus } = useClassInfo()
+  const [terms, setTerms] = useState<ClassTerms>({ ...classInfo.terms })
+  const [menus, setMenus] = useState<MenuConfig[]>(classInfo.menus.map(m => ({ ...m })))
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  // classInfo 변경 시 로컬 상태 동기화
+  useEffect(() => { setTerms({ ...classInfo.terms }) }, [classInfo.terms])
+  useEffect(() => { setMenus(classInfo.menus.map(m => ({ ...m }))) }, [classInfo.menus])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await updateTerms(terms)
+      await updateMenus(menus)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      console.error('[ClassSettings] save failed:', e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="space-y-6">
+      {/* 반 이름·부제 */}
+      <div>
+        <h3 className="font-display font-bold text-moss-darkest mb-3">반 이름 및 부제</h3>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-ink-500 mb-1">반 이름 (헤더 큰 글씨)</label>
+            <input className="pixel-input w-full" value={terms.className}
+              onChange={e => setTerms(p => ({ ...p, className: e.target.value }))}
+              placeholder="예: 신의반 신전" />
+          </div>
+          <div>
+            <label className="block text-sm text-ink-500 mb-1">부제 (헤더 작은 글씨)</label>
+            <input className="pixel-input w-full" value={terms.subtitle}
+              onChange={e => setTerms(p => ({ ...p, subtitle: e.target.value }))}
+              placeholder="예: 6학년 우리 반 마음마을" />
+          </div>
+        </div>
+      </div>
+
+      {/* 용어 설정 */}
+      <div>
+        <h3 className="font-display font-bold text-moss-darkest mb-3">용어 설정</h3>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-ink-500 mb-1">학생 호칭</label>
+            <input className="pixel-input w-full" value={terms.studentTitle}
+              onChange={e => setTerms(p => ({ ...p, studentTitle: e.target.value }))}
+              placeholder="예: 신민, 탐험가, 별빛이" />
+            <p className="text-xs text-ink-400 mt-1">학생을 부르는 호칭</p>
+          </div>
+          <div>
+            <label className="block text-sm text-ink-500 mb-1">화폐 이름</label>
+            <input className="pixel-input w-full" value={terms.cookieName}
+              onChange={e => setTerms(p => ({ ...p, cookieName: e.target.value }))}
+              placeholder="예: 쿠키, 별조각, 씨앗" />
+            <p className="text-xs text-ink-400 mt-1">보상으로 받는 화폐 단위</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 메뉴 켜기/끄기 + 이름 변경 */}
+      <div>
+        <h3 className="font-display font-bold text-moss-darkest mb-3">메뉴 설정</h3>
+        <p className="text-xs text-ink-400 mb-3">체크박스로 메뉴를 켜거나 끄고, 텍스트로 메뉴 이름을 바꿀 수 있어요.</p>
+        <div className="space-y-3">
+          {menus.map((m, i) => (
+            <div key={m.key} className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={m.enabled}
+                onChange={e => setMenus(prev => prev.map((x, j) => j === i ? { ...x, enabled: e.target.checked } : x))}
+                className="w-4 h-4 accent-moss-deep"
+              />
+              <input
+                className="pixel-input flex-1"
+                value={m.label}
+                onChange={e => setMenus(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+              />
+              <span className="text-xs text-ink-400 w-20">{m.enabled ? '표시됨' : '숨겨짐'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 저장 */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="btn-gold"
+        >
+          {saving ? '저장 중…' : saved ? '✓ 저장됨' : '설정 저장'}
+        </button>
+        {saved && <span className="text-sm text-moss-deep">변경 사항이 저장됐어요!</span>}
+      </div>
+    </section>
+  )
+}

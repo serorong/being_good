@@ -16,6 +16,7 @@ export interface AuthState {
   studentId?: string
   teacherName?: string
   teacherEmail?: string           // 교사 구글 로그인 이메일 (서버 검증과 동기)
+  classId?: string                // 소속 반 ID (undefined → 'divine' 기본값)
 }
 
 /** 학생 입장 신청 — /join_requests/{email} 문서. 교사 승인 시 매핑이 확정된다. */
@@ -272,3 +273,28 @@ export interface DailyFeature {
 }
 
 export type StudentStateMap = Record<string, StudentState>
+
+/* ──────────────── 다반 지원 (multi-class) ──────────────── */
+
+export type MenuKey = 'notice' | 'quests' | 'missions' | 'shop' | 'offerings' | 'shrine'
+
+export interface MenuConfig {
+  key: MenuKey
+  label: string
+  enabled: boolean
+}
+
+export interface ClassTerms {
+  className: string      // 반 이름 헤더 (예: "신의반 신전")
+  subtitle: string       // 부제 (예: "6학년 우리 반 마음마을")
+  studentTitle: string   // 학생 호칭 (예: "신민")
+  cookieName: string     // 화폐 이름 (예: "쿠키")
+}
+
+export interface ClassInfo {
+  classId: string
+  teacherEmail: string
+  createdAt: string
+  terms: ClassTerms
+  menus: MenuConfig[]
+}

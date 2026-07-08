@@ -1,4 +1,4 @@
-import type { AgoraTopic, CustomTitle, DailyTaskDef, EmotionForest, Mission, ShopItem, Student, TitleColor } from './types'
+import type { AgoraTopic, ClassInfo, ClassTerms, CustomTitle, DailyTaskDef, EmotionForest, MenuConfig, Mission, ShopItem, Student, TitleColor } from './types'
 
 /**
  * 교사 화이트리스트 (구글 로그인 이메일).
@@ -16,9 +16,47 @@ export const TEACHER_EMAILS = [
   'uts1368@dajeong.sjedues.kr',
 ] as const
 
+/** 신의반 전용 교사 여부 (whitelist). divine classId에 접근하는 교사 검증용. */
 export function isTeacherEmail(email: string | null | undefined): boolean {
   if (!email) return false
   return (TEACHER_EMAILS as readonly string[]).includes(email.toLowerCase())
+}
+
+/** 다정초 교사 도메인 여부. 새 반을 개설할 수 있는 모든 교사. */
+export function isDajeongTeacherEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  const lower = email.toLowerCase()
+  return lower.endsWith('@dajeong.sjedues.kr') || isTeacherEmail(lower)
+}
+
+/* ──────────────── 다반(multi-class) 기본값 ──────────────── */
+
+export const DIVINE_CLASS_ID = 'divine'
+
+export const DEFAULT_CLASS_TERMS: ClassTerms = {
+  className: '신의반 신전',
+  subtitle: '6학년 우리 반 마음마을',
+  studentTitle: '신민',
+  cookieName: '쿠키',
+}
+
+export const DEFAULT_MENU_CONFIGS: MenuConfig[] = [
+  { key: 'notice',    label: '알림장',       enabled: true },
+  { key: 'quests',    label: '신탁 두루마리', enabled: true },
+  { key: 'missions',  label: '미션',         enabled: true },
+  { key: 'shop',      label: '상점',         enabled: true },
+  { key: 'offerings', label: '제물',         enabled: true },
+  { key: 'shrine',    label: '모둠별 신전',   enabled: true },
+]
+
+export function defaultClassInfo(classId: string, teacherEmail: string): ClassInfo {
+  return {
+    classId,
+    teacherEmail,
+    createdAt: new Date().toISOString(),
+    terms: { ...DEFAULT_CLASS_TERMS },
+    menus: DEFAULT_MENU_CONFIGS.map(m => ({ ...m })),
+  }
 }
 
 export const DAILY_TASKS: DailyTaskDef[] = [
