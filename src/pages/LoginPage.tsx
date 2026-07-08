@@ -249,7 +249,7 @@ export default function LoginPage() {
               <input className="input" placeholder="예: 5학년 1반 마음마을" value={createTerms.subtitle}
                 onChange={e => setCreateTerms(p => ({ ...p, subtitle: e.target.value }))} style={{ marginBottom: 12 }} />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 4 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 14, color: 'var(--muted)', marginBottom: 6 }}>학생 호칭</label>
                   <input className="input" placeholder="예: 탐험가" value={createTerms.studentTitle}
@@ -261,20 +261,37 @@ export default function LoginPage() {
                     onChange={e => setCreateTerms(p => ({ ...p, cookieName: e.target.value }))} />
                 </div>
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div style={{ fontSize: 11.5, color: 'var(--muted-3)', lineHeight: 1.5 }}>학생을 부르는 명칭이에요.<br/>예) 신민, 탐험가, 마을주민</div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted-3)', lineHeight: 1.5 }}>미션·퀘스트 보상으로 쌓이는<br/>학급 화폐 이름이에요.</div>
+              </div>
 
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 8 }}>사용할 메뉴 선택 및 이름 설정</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {createMenus.map((m, i) => (
-                    <label key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={m.enabled}
-                        onChange={e => setCreateMenus(prev => prev.map((x, j) => j === i ? { ...x, enabled: e.target.checked } : x))} />
-                      <input className="input" value={m.label} style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
-                        onChange={e => setCreateMenus(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-                    </label>
-                  ))}
+                <div style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 10 }}>사용할 메뉴 선택 및 이름 설정</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  {createMenus.map((m, i) => {
+                    const desc: Record<string, string> = {
+                      notice:    '선생님이 올리는 공지·숙제 안내',
+                      quests:    '학생이 도전하는 퀘스트 목록',
+                      missions:  '학급 전체가 함께하는 과제',
+                      shop:      `화폐로 아이템을 구매하는 공간`,
+                      offerings: '학생이 선생님께 보내는 선물함',
+                      shrine:    '모둠별 꾸미기 공간(미니룸)',
+                    }
+                    return (
+                      <div key={m.key} style={{ marginBottom: 10 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={m.enabled}
+                            onChange={e => setCreateMenus(prev => prev.map((x, j) => j === i ? { ...x, enabled: e.target.checked } : x))} />
+                          <input className="input" value={m.label} style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
+                            onChange={e => setCreateMenus(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
+                        </label>
+                        <div style={{ fontSize: 11.5, color: 'var(--muted-3)', marginTop: 3, marginLeft: 26, lineHeight: 1.4 }}>{desc[m.key]}</div>
+                      </div>
+                    )
+                  })}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--muted-3)', marginTop: 6 }}>체크 = 표시 / 텍스트 = 메뉴 이름 변경</div>
+                <div style={{ fontSize: 12, color: 'var(--muted-3)', marginTop: 2 }}>체크 = 표시 / 텍스트 = 메뉴 이름 변경</div>
               </div>
 
               <div style={{ fontSize: 13, color: 'var(--muted-2)', marginBottom: 12, lineHeight: 1.5 }}>
