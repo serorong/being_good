@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command' 2>/dev/null); echo \"$cmd\" | grep -q 'firebase deploy' || exit 0; cd \"/Users/carminecappuccino/Desktop/폴더/serin's room/for inspiration/신의반 사이트\" && git diff --quiet && git diff --cached --quiet && exit 0; git add -A && git commit -m \"배포 자동 저장 $(date '+%Y-%m-%d %H:%M')\" && git push 2>&1 || true",
+            "statusMessage": "배포 후 깃 자동 저장 중…"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"/Users/carminecappuccino/Desktop/폴더/serin's room/for inspiration/신의반 사이트\" && git diff --quiet && git diff --cached --quiet && exit 0; npx vite build 2>/dev/null && npx firebase deploy --only hosting 2>/dev/null && git add -A && git commit -m \"자동 저장 $(date '+%Y-%m-%d %H:%M')\" && git push 2>&1 || true",
+            "statusMessage": "빌드 · 배포 · 깃 자동 저장 중…",
+            "timeout": 120,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

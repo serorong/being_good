@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../auth'
-import { DAILY_TASKS, itemsUnlockedAt, lastNDays, levelFromXp, maxDailyScore, themesUnlockedAt, todayStr } from '../data'
-import { useCustomTitles, useRoster, useStudentStateMap } from '../state'
-import type { CustomTitle, DailyTaskKey, MissionRecord, TitleColor } from '../types'
+import { itemsUnlockedAt, lastNDays, levelFromXp, themesUnlockedAt, todayStr } from '../data'
+import { useCustomTitles, useDailyTasks, useRoster, useStudentStateMap } from '../state'
+import type { CustomTitle, MissionRecord, TitleColor } from '../types'
 import Sprite from '../components/Sprite'
 import PixelEditor from '../components/PixelEditor'
 
@@ -17,7 +17,7 @@ function dateStr(d: Date) {
 
 function totalOf(rec?: MissionRecord) {
   if (!rec) return 0
-  return Object.values(rec.scores).reduce((a, b) => a + (b ?? 0), 0)
+  return Object.values(rec.scores).reduce((a, b) => (a ?? 0) + (b ?? 0), 0) ?? 0
 }
 
 function rewardFor(score: number) {
@@ -39,13 +39,14 @@ export default function QuestsPage() {
   const [selected, setSelected] = useState(today)
   const days = useMemo(() => lastNDays(7), [])
 
+  const tasks = useDailyTasks()
   const record = state?.missions.find(m => m.date === selected) ?? { date: selected, scores: {}, redeemed: false }
   const isToday = selected === today
   const total = totalOf(record)
-  const max = maxDailyScore()
+  const max = tasks.reduce((a, t) => a + t.maxScore, 0)
   const reward = rewardFor(total)
 
-  const setTaskScore = (key: DailyTaskKey, value: number) => {
+  const setTaskScore = (key: string, value: number) => {
     if (!sid || !isToday) return
     update(sid, s => {
       const idx = s.missions.findIndex(m => m.date === selected)
@@ -159,7 +160,7 @@ export default function QuestsPage() {
 
       {/* 미션 카드 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
-        {DAILY_TASKS.map(task => {
+        {tasks.map(task => {
           const score = record.scores[task.key] ?? 0
           return (
             <div key={task.key} className="card">

@@ -746,8 +746,8 @@ function displayTitles(
 
 function StudentCard({ s, state, titles, highlighted, cookies }: { s: Student; state?: StudentState; titles: CustomTitle[]; highlighted?: boolean; cookies: number }) {
   const t = state?.missions.find(m => m.date === todayStr())
-  const todayScore = t ? Object.values(t.scores).reduce((a, b) => a + (b ?? 0), 0) : s.todayScore
-  const pct = Math.min(100, Math.round((todayScore / 10) * 100))
+  const todayScore = t ? Object.values(t.scores).reduce((a, b) => (a ?? 0) + (b ?? 0), 0) ?? 0 : s.todayScore
+  const pct = Math.min(100, Math.round(((todayScore ?? 0) / 10) * 100))
   const titleList = displayTitles(s, state, titles)
 
   return (

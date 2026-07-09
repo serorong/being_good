@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../auth'
-import { SHOP_REAL_ITEMS } from '../data'
-import { effectiveCookies, lifetimeCookiesOf, purchaseShopItem, useRoster, useStudentStateMap } from '../state'
+import { effectiveCookies, lifetimeCookiesOf, purchaseShopItem, useRoster, useShopItems, useStudentStateMap } from '../state'
 
 export default function ShopPage() {
   const [auth] = useAuth()
@@ -14,6 +13,7 @@ export default function ShopPage() {
   const lifetime = sid ? lifetimeCookiesOf(sid, map) : 0
   const purchases = sid ? (map[sid]?.purchases ?? []) : []
 
+  const shopItems = useShopItems()
   const [working, setWorking] = useState(false)
   const isTeacher = auth?.role === 'teacher'
 
@@ -25,7 +25,7 @@ export default function ShopPage() {
   const buy = (itemId: string) => {
     if (!sid || working) return
     if (isTeacher) { alert('교사 모드에서는 직접 구매할 수 없어요. 학생 계정으로 로그인해 주세요.'); return }
-    const item = SHOP_REAL_ITEMS.find(i => i.id === itemId)
+    const item = shopItems.find(i => i.id === itemId)
     if (!item) return
     if (current < item.cost) { alert(`현재 쿠키가 부족해요. (필요 ${item.cost} / 보유 ${current})`); return }
     const ok = confirm(`「${item.name}」 구입을 희망하시나요?\n\n비용: 🍪 ${item.cost}개\n구매 후 현재 쿠키에서 ${item.cost}개 차감 (누적 쿠키 유지)\n\n[확인]을 눌러주세요.`)
@@ -56,7 +56,7 @@ export default function ShopPage() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
-        {SHOP_REAL_ITEMS.map(item => {
+        {shopItems.map(item => {
           const canBuy = !isTeacher && current >= item.cost
           return (
             <div key={item.id} className="card lift" style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>

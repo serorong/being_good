@@ -2,14 +2,7 @@ export type Role = 'student' | 'teacher'
 
 export type TitleColor = 'gold' | 'blue' | 'green' | 'rose'
 
-export type DailyTaskKey =
-  | 'presentation'
-  | 'attitude'
-  | 'cleaning'
-  | 'homework'
-  | 'kindWords'
-  | 'lunch'
-  | 'diary'
+export type DailyTaskKey = string
 
 export interface AuthState {
   role: Role
@@ -297,4 +290,12 @@ export interface ClassInfo {
   createdAt: string
   terms: ClassTerms
   menus: MenuConfig[]
+}
+
+export interface CustomShopItem {
+  id: string
+  name: string
+  icon: string
+  description: string
+  cost: number
 }

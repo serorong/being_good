@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { avatarUrl, todayStr } from '../data'
-import { approveJoinRequest, effectiveCookies, rejectJoinRequest, setDailyFeature, useAgoraPosts, useAgoraTopics, useCustomTitles, useDailyFeature, useJoinRequests, useMissions, useNotices, useOfferings, useRoster, useStudentEmailMap, useStudentStateMap, setRoster } from '../state'
-import type { AgoraTopic, AgoraVisibility, ClassTerms, CustomTitle, DiaryEntry, JoinRequest, MenuConfig, Mission, Notice, Offering, TitleColor } from '../types'
+import { approveJoinRequest, effectiveCookies, rejectJoinRequest, setDailyFeature, setDailyTasks, setShopItems, useAgoraPosts, useAgoraTopics, useCustomTitles, useDailyFeature, useDailyTasks, useJoinRequests, useMissions, useNotices, useOfferings, useRoster, useShopItems, useStudentEmailMap, useStudentStateMap, setRoster } from '../state'
+import type { AgoraTopic, AgoraVisibility, ClassTerms, CustomShopItem, CustomTitle, DailyTaskDef, DiaryEntry, JoinRequest, MenuConfig, Mission, Notice, Offering, TitleColor } from '../types'
 import { useClassInfo } from '../ClassContext'
 
 const COLORS: TitleColor[] = ['gold', 'blue', 'green', 'rose']
@@ -10,20 +10,23 @@ const COLOR_LABEL: Record<TitleColor, string> = { gold: '황금', blue: '하늘'
 type AdminMenuKey =
   | 'classSettings' | 'approvals' | 'daily' | 'notices' | 'offerings' | 'roster' | 'missions'
   | 'agora'         | 'diaries'   | 'titles' | 'cookies' | 'shop'      | 'cleanup'
+  | 'questConfig'   | 'shopConfig'
 
 const MENU: Array<{ key: AdminMenuKey; icon: string; label: string; desc: string }> = [
-  { key: 'classSettings', icon: '⚙️', label: '반 설정',     desc: '반 이름·용어·메뉴 표시 설정' },
-  { key: 'approvals', icon: '🗝️', label: '입장 승인',   desc: '학생이 신청한 구글 계정 연결을 승인' },
-  { key: 'daily',     icon: '📅', label: '일력 선정',   desc: '오늘 홈에 보일 명언/일력을 정해요' },
-  { key: 'notices',   icon: '📋', label: '알림장',     desc: '학생 「신전 현황」 상단에 표시되는 공지' },
-  { key: 'offerings', icon: '📜', label: '제물 게시판', desc: '미니게임/활동 자료 등 학생 「제물」 탭' },
-  { key: 'roster',    icon: '🧝', label: '학생 명단',   desc: '코드/이름 추가·삭제·CSV 업로드' },
-  { key: 'missions',  icon: '🎯', label: '미션 관리',   desc: '오늘의 미션을 만들고 위계를 정해요' },
-  { key: 'diaries',   icon: '🪶', label: '감정일기',    desc: '학생이 쓴 일지를 보고 피드백을 남겨요' },
-  { key: 'titles',    icon: '🎖️', label: '호칭 관리',   desc: '새 호칭을 만들고 학생에게 부여' },
-  { key: 'cookies',   icon: '🍪', label: '쿠키 조정',   desc: '학생별 쿠키를 직접 조정' },
-  { key: 'shop',      icon: '🛒', label: '상점',        desc: '학생들이 상점에서 구매한 내역을 확인' },
-  { key: 'cleanup',   icon: '🧹', label: '데이터 정리', desc: 'Firebase 무료 한도 안전 유지' },
+  { key: 'classSettings', icon: '⚙️', label: '반 설정',           desc: '반 이름·용어·메뉴 표시 설정' },
+  { key: 'approvals',     icon: '🗝️', label: '입장 승인',         desc: '학생이 신청한 구글 계정 연결을 승인' },
+  { key: 'daily',         icon: '📅', label: '일력 선정',         desc: '오늘 홈에 보일 명언/일력을 정해요' },
+  { key: 'notices',       icon: '📋', label: '알림장',           desc: '학생 「신전 현황」 상단에 표시되는 공지' },
+  { key: 'offerings',     icon: '📜', label: '제물 게시판',       desc: '미니게임/활동 자료 등 학생 「제물」 탭' },
+  { key: 'roster',        icon: '🧝', label: '학생 명단',         desc: '코드/이름 추가·삭제·CSV 업로드' },
+  { key: 'missions',      icon: '🎯', label: '미션 관리',         desc: '오늘의 미션을 만들고 위계를 정해요' },
+  { key: 'questConfig',   icon: '📜', label: '일일 퀘스트 설정', desc: '퀘스트 항목·이름·점수·설명을 커스텀' },
+  { key: 'shopConfig',    icon: '🛍️', label: '상점 설정',         desc: '상점 아이템 추가·수정·삭제' },
+  { key: 'diaries',       icon: '🪶', label: '감정일기',          desc: '학생이 쓴 일지를 보고 피드백을 남겨요' },
+  { key: 'titles',        icon: '🎖️', label: '호칭 관리',         desc: '새 호칭을 만들고 학생에게 부여' },
+  { key: 'cookies',       icon: '🍪', label: '쿠키 조정',         desc: '학생별 쿠키를 직접 조정' },
+  { key: 'shop',          icon: '🛒', label: '상점',              desc: '학생들이 상점에서 구매한 내역을 확인' },
+  { key: 'cleanup',       icon: '🧹', label: '데이터 정리',       desc: 'Firebase 무료 한도 안전 유지' },
 ]
 
 export default function AdminPage() {
@@ -92,8 +95,10 @@ export default function AdminPage() {
               {active === 'notices'   && <NoticesSection />}
               {active === 'offerings' && <OfferingsAdminSection />}
               {active === 'roster'    && <RosterSection />}
-              {active === 'missions'  && <MissionsAdminSection />}
-              {active === 'diaries'   && <DiariesSection />}
+              {active === 'missions'    && <MissionsAdminSection />}
+              {active === 'questConfig' && <QuestConfigSection />}
+              {active === 'shopConfig'  && <ShopConfigSection />}
+              {active === 'diaries'     && <DiariesSection />}
               {active === 'titles'    && <TitlesSection />}
               {active === 'cookies'   && <CookiesSection />}
               {active === 'shop'      && <ShopPurchasesSection />}
@@ -2528,6 +2533,138 @@ function ClassSettingsSection() {
           {saving ? '저장 중…' : saved ? '✓ 저장됨' : '설정 저장'}
         </button>
         {saved && <span className="text-sm text-moss-deep">변경 사항이 저장됐어요!</span>}
+      </div>
+    </section>
+  )
+}
+
+/* ──────────────── 일일 퀘스트 설정 (QuestConfigSection) ──────────────── */
+function QuestConfigSection() {
+  const stored = useDailyTasks()
+  const [tasks, setTasks] = useState<DailyTaskDef[]>(() => stored.map(t => ({ ...t })))
+  const [saved, setSaved] = useState(false)
+
+  const update = (i: number, field: keyof DailyTaskDef, val: string | number) =>
+    setTasks(prev => prev.map((t, j) => j === i ? { ...t, [field]: val } : t))
+
+  const addTask = () => setTasks(prev => [...prev, {
+    key: `task_${Date.now()}`, label: '새 퀘스트', description: '설명을 입력하세요', maxScore: 1, icon: '⭐'
+  }])
+
+  const removeTask = (i: number) => setTasks(prev => prev.filter((_, j) => j !== i))
+
+  const save = () => {
+    setDailyTasks(tasks, e => console.error(e))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <section className="sin-screen">
+      <h2 className="page-title" style={{ fontSize: 20, marginBottom: 4 }}>일일 퀘스트 설정</h2>
+      <p className="page-subtitle" style={{ marginBottom: 16 }}>학생들이 매일 도전하는 퀘스트 항목을 커스텀해요.</p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+        {tasks.map((task, i) => (
+          <div key={task.key} className="card" style={{ padding: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>아이콘</label>
+                <input className="input" value={task.icon} onChange={e => update(i, 'icon', e.target.value)}
+                  style={{ textAlign: 'center', fontSize: 20, padding: '6px 4px' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>항목 이름</label>
+                <input className="input" value={task.label} onChange={e => update(i, 'label', e.target.value)} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>최대 점수</label>
+                <input className="input" type="number" min={1} max={10} value={task.maxScore}
+                  onChange={e => update(i, 'maxScore', Math.max(1, Math.min(10, Number(e.target.value))))} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>설명</label>
+              <input className="input" value={task.description} onChange={e => update(i, 'description', e.target.value)} />
+            </div>
+            <button onClick={() => removeTask(i)} className="btn btn--ghost"
+              style={{ fontSize: 12, padding: '4px 10px', color: 'var(--pink)' }}>
+              삭제
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={addTask} className="btn btn--ghost" style={{ marginBottom: 12 }}>+ 항목 추가</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={save} className="btn btn--primary">저장</button>
+        {saved && <span style={{ fontSize: 13, color: 'var(--green)' }}>저장됐어요!</span>}
+      </div>
+    </section>
+  )
+}
+
+/* ──────────────── 상점 설정 (ShopConfigSection) ──────────────── */
+function ShopConfigSection() {
+  const stored = useShopItems()
+  const [items, setItems] = useState<CustomShopItem[]>(() => stored.map(i => ({ ...i })))
+  const [saved, setSaved] = useState(false)
+
+  const update = (i: number, field: keyof CustomShopItem, val: string | number) =>
+    setItems(prev => prev.map((item, j) => j === i ? { ...item, [field]: val } : item))
+
+  const addItem = () => setItems(prev => [...prev, {
+    id: `item_${Date.now()}`, name: '새 아이템', icon: '🎁', description: '설명을 입력하세요', cost: 100
+  }])
+
+  const removeItem = (i: number) => setItems(prev => prev.filter((_, j) => j !== i))
+
+  const save = () => {
+    setShopItems(items, e => console.error(e))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <section className="sin-screen">
+      <h2 className="page-title" style={{ fontSize: 20, marginBottom: 4 }}>상점 설정</h2>
+      <p className="page-subtitle" style={{ marginBottom: 16 }}>학생들이 쿠키로 구매할 수 있는 아이템을 관리해요.</p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+        {items.map((item, i) => (
+          <div key={item.id} className="card" style={{ padding: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 120px', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>아이콘</label>
+                <input className="input" value={item.icon} onChange={e => update(i, 'icon', e.target.value)}
+                  style={{ textAlign: 'center', fontSize: 20, padding: '6px 4px' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>아이템 이름</label>
+                <input className="input" value={item.name} onChange={e => update(i, 'name', e.target.value)} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>가격 (쿠키)</label>
+                <input className="input" type="number" min={1} value={item.cost}
+                  onChange={e => update(i, 'cost', Math.max(1, Number(e.target.value)))} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>설명</label>
+              <input className="input" value={item.description} onChange={e => update(i, 'description', e.target.value)} />
+            </div>
+            <button onClick={() => removeItem(i)} className="btn btn--ghost"
+              style={{ fontSize: 12, padding: '4px 10px', color: 'var(--pink)' }}>
+              삭제
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={addItem} className="btn btn--ghost" style={{ marginBottom: 12 }}>+ 아이템 추가</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={save} className="btn btn--primary">저장</button>
+        {saved && <span style={{ fontSize: 13, color: 'var(--green)' }}>저장됐어요!</span>}
       </div>
     </section>
   )

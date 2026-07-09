@@ -275,7 +275,7 @@ export default function LoginPage() {
                       quests:    '학생이 도전하는 퀘스트 목록',
                       missions:  '학급 전체가 함께하는 과제',
                       shop:      `화폐로 아이템을 구매하는 공간`,
-                      offerings: '학생이 선생님께 보내는 선물함',
+                      offerings: '선생님이 학생에게 보내는 선물함',
                       shrine:    '모둠별 꾸미기 공간(미니룸)',
                     }
                     return (

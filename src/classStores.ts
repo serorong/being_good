@@ -7,7 +7,7 @@
  */
 import { createContext, useContext } from 'react'
 import type {
-  AgoraPost, AgoraTopic, CustomTitle, DailyFeature, JoinRequest,
+  AgoraPost, AgoraTopic, CustomShopItem, CustomTitle, DailyFeature, DailyTaskDef, JoinRequest,
   MiniGroup, Mission, Notice, Offering, Student, StudentStateMap,
 } from './types'
 
@@ -42,6 +42,8 @@ export interface ClassStoresShape {
   studentEmailMap: IStore<Record<string, string>>
   dailyFeature: IStore<DailyFeature | null>
   miniGroups: IStore<MiniGroup[]>
+  dailyTasks: IStore<DailyTaskDef[]>
+  shopItems: IStore<CustomShopItem[]>
   students: IStudentsStore
   joinRequests: IJoinRequestsStore
 }

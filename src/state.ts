@@ -6,10 +6,11 @@ import {
 import { db, onSignedIn } from './firebase'
 import {
   DEFAULT_AGORA_TOPICS, DEFAULT_CUSTOM_TITLES, DEFAULT_MISSIONS,
+  DAILY_TASKS, SHOP_REAL_ITEMS,
   DIVINE_CLASS_ID, MOCK_STUDENTS, levelFromXp, themesUnlockedAt, itemsUnlockedAt,
 } from './data'
 import type {
-  AgoraPost, AgoraTopic, CustomTitle, DailyFeature, JoinRequest,
+  AgoraPost, AgoraTopic, CustomShopItem, CustomTitle, DailyFeature, DailyTaskDef, JoinRequest,
   MiniGroup, Mission, Notice, Offering, Student, StudentState, StudentStateMap,
 } from './types'
 import { ClassStoresContext, type ClassStoresShape, registerDivineStores } from './classStores'
@@ -112,6 +113,8 @@ const rosterStore      = new Store<Student[]>('divine.roster', MOCK_STUDENTS, do
 const studentEmailMapStore = new Store<Record<string, string>>('divine.student_email_map', {}, doc(db, 'state', 'student_email_map'))
 const dailyFeatureStore = new Store<DailyFeature | null>('divine.daily_feature', null, doc(db, 'state', 'daily_feature'))
 const miniGroupsStore  = new Store<MiniGroup[]>('divine.miniroom_groups', [], doc(db, 'state', 'miniroom_groups'))
+const dailyTasksStore  = new Store<DailyTaskDef[]>('divine.daily_tasks', DAILY_TASKS, doc(db, 'state', 'daily_tasks'))
+const shopItemsStore   = new Store<CustomShopItem[]>('divine.shop_items', SHOP_REAL_ITEMS, doc(db, 'state', 'shop_items'))
 
 /* ── divine 학생 상태 — 하이브리드 스토어 (legacy 마이그레이션 포함) ── */
 
@@ -365,6 +368,8 @@ const divineShapeStores: ClassStoresShape = {
   studentEmailMap: studentEmailMapStore,
   dailyFeature: dailyFeatureStore,
   miniGroups: miniGroupsStore,
+  dailyTasks: dailyTasksStore,
+  shopItems: shopItemsStore,
   students: divineStudentsStore,
   joinRequests: divineJoinRequestsStore,
 }
@@ -395,6 +400,8 @@ export function getOrCreateClassStores(classId: string): ClassStoresShape {
     studentEmailMap: classEmailMap,
     dailyFeature: new Store<DailyFeature | null>(`class.${classId}.daily_feature`, null, stateDoc('daily_feature')),
     miniGroups:  new Store<MiniGroup[]>(`class.${classId}.miniroom_groups`, [], stateDoc('miniroom_groups')),
+    dailyTasks:  new Store<DailyTaskDef[]>(`class.${classId}.daily_tasks`, DAILY_TASKS, stateDoc('daily_tasks')),
+    shopItems:   new Store<CustomShopItem[]>(`class.${classId}.shop_items`, SHOP_REAL_ITEMS, stateDoc('shop_items')),
     students:    new SimpleStudentsStore(classId),
     joinRequests: classJoinReqs,
   }
@@ -484,6 +491,22 @@ export function setDailyFeature(
   onError?: (e: unknown) => void,
 ) {
   _activeStores.dailyFeature.set(updater, onError)
+}
+
+export function useDailyTasks() {
+  const { dailyTasks } = useStores()
+  return useSyncExternalStore<DailyTaskDef[]>(dailyTasks.subscribe, dailyTasks.get, () => DAILY_TASKS)
+}
+export function setDailyTasks(updater: DailyTaskDef[] | ((prev: DailyTaskDef[]) => DailyTaskDef[]), onError?: (e: unknown) => void) {
+  _activeStores.dailyTasks.set(updater, onError)
+}
+
+export function useShopItems() {
+  const { shopItems } = useStores()
+  return useSyncExternalStore<CustomShopItem[]>(shopItems.subscribe, shopItems.get, () => SHOP_REAL_ITEMS)
+}
+export function setShopItems(updater: CustomShopItem[] | ((prev: CustomShopItem[]) => CustomShopItem[]), onError?: (e: unknown) => void) {
+  _activeStores.shopItems.set(updater, onError)
 }
 
 export function useMiniGroups() {
