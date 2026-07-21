@@ -164,12 +164,36 @@ const SPRITE_UPGRADES: Record<string, { map: string[] }> = {
   },
 }
 
-export const SPRITES: Record<string, SpriteDef> = Object.fromEntries(
-  Object.entries(SPRITE_DATA.SPRITES).map(([key, sprite]) => {
-    const upgrade = SPRITE_UPGRADES[key]
-    return [key, upgrade ? { ...sprite, ...upgrade, enhanced: true } : sprite]
-  })
-) as Record<string, SpriteDef>
+/* 방학 시즌 2 — 독서 서재(포트폴리오 가구). 클릭하면 독서 기록·독후활동이 열린다. */
+const EXTRA_SPRITES: Record<string, SpriteDef> = {
+  bookshelf: {
+    cat: '가구', wall: false,
+    map: [
+      "  NNNNNNNNNNNN  ",
+      " NNnnnnnnnnnnNN ",
+      " NNRRCC BBYYhNN ",
+      " NNRRCC BBYYhNN ",
+      " NNnnnnnnnnnnNN ",
+      " NNBBhh CCRRYNN ",
+      " NNBBhh CCRRYNN ",
+      " NNnnnnnnnnnnNN ",
+      " NNYYRR hhBBCNN ",
+      " NNYYRR hhBBCNN ",
+      " NNNNNNNNNNNNNN ",
+      "  NN        NN  ",
+    ],
+  },
+}
+
+export const SPRITES: Record<string, SpriteDef> = {
+  ...(Object.fromEntries(
+    Object.entries(SPRITE_DATA.SPRITES).map(([key, sprite]) => {
+      const upgrade = SPRITE_UPGRADES[key]
+      return [key, upgrade ? { ...sprite, ...upgrade, enhanced: true } : sprite]
+    })
+  ) as Record<string, SpriteDef>),
+  ...EXTRA_SPRITES,
+}
 
 export const CAT_ORDER = ['가구', '가전', '식물', '소품', '동물', '액자', '창문', '조명', '시계', '장식'] as const
 

@@ -47,6 +47,7 @@ export const DEFAULT_MENU_CONFIGS: MenuConfig[] = [
   { key: 'shop',      label: '상점',         enabled: true },
   { key: 'offerings', label: '제물',         enabled: true },
   { key: 'shrine',    label: '모둠별 신전',   enabled: true },
+  { key: 'library',   label: '모두의 도서관', enabled: false },   // 방학 시즌 — 학급관리에서 열고 닫기
 ]
 
 export function defaultClassInfo(classId: string, teacherEmail: string): ClassInfo {

@@ -57,7 +57,11 @@ export function ClassProvider({ classId, teacherEmail, children }: Props) {
     const infoRef = doc(db, 'classes', classId, 'info', 'data')
     const unsub = onSnapshot(infoRef, snap => {
       if (snap.exists()) {
-        setClassInfo({ classId, ...snap.data() } as ClassInfo)
+        const info = { classId, ...snap.data() } as ClassInfo
+        // 나중에 추가된 기본 메뉴(예: library)가 저장된 문서에 없으면 채워 넣는다
+        const missing = defaultClassInfo(classId, teacherEmail ?? '').menus
+          .filter(d => !info.menus?.some(m => m.key === d.key))
+        setClassInfo(missing.length ? { ...info, menus: [...(info.menus ?? []), ...missing] } : info)
       } else {
         // 최초: 기본값으로 문서 생성
         const defaults = defaultClassInfo(classId, teacherEmail ?? '')

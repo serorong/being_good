@@ -15,6 +15,7 @@ import { Modal } from './Modal'
 import { FrameViewer } from './FrameViewer'
 import { MC, MiniBtn, FriendPicker, GiftInbox } from './parts'
 import { useGifts, sendGift, removeGift } from './collections'
+import { BookshelfModal } from '../library/BookshelfModal'
 
 type Tab = 'home' | 'deco' | 'shrine' | 'manage'
 
@@ -37,6 +38,13 @@ export default function MiniRoomPage() {
 
   const [tab, setTab] = useState<Tab>(isTeacher ? 'shrine' : 'home')
   const [viewer, setViewer] = useState<MiniRoomItem | MiniWallItem | null>(null)
+  const [shelfSid, setShelfSid] = useState<string | null>(null)
+
+  // 서재(bookshelf) 가구를 클릭하면 그 방 주인의 독서 포트폴리오를 연다
+  const clickItem = (it: MiniRoomItem | MiniWallItem, ownerSid?: string) => {
+    if (it.key === 'bookshelf' && ownerSid) setShelfSid(ownerSid)
+    else setViewer(it)
+  }
 
   const myReceivedGifts = useMemo(() => gifts.filter(g => g.toSid === mySid), [gifts, mySid])
 
@@ -74,7 +82,8 @@ export default function MiniRoomPage() {
       {tab === 'home' && mySid && (
         <HomeTab room={roomOf(mySid)} sid={mySid} name={myName} seed={seedOf(mySid)} customAvatar={avatarOf(mySid)}
           gifts={myReceivedGifts} onHangGift={hangGift} onDiscardGift={g => removeGift(g.id)}
-          onClickItem={setViewer} onStatus={(status) => saveRoom({ ...roomOf(mySid), status })} onEdit={() => setTab('deco')} />
+          onClickItem={it => clickItem(it, mySid)} onStatus={(status) => saveRoom({ ...roomOf(mySid), status })} onEdit={() => setTab('deco')}
+          onOpenShelf={() => setShelfSid(mySid)} />
       )}
 
       {tab === 'deco' && mySid && (
@@ -84,7 +93,7 @@ export default function MiniRoomPage() {
 
       {tab === 'shrine' && (
         <ShrineTab groups={groups} mySid={mySid} roster={roster} roomOf={roomOf} seedOf={seedOf} avatarOf={avatarOf} nameOf={nameOf}
-          onClickItem={setViewer} onGoHome={() => setTab(mySid ? 'home' : 'shrine')} isTeacher={isTeacher} />
+          onClickItem={clickItem} onGoHome={() => setTab(mySid ? 'home' : 'shrine')} isTeacher={isTeacher} />
       )}
 
       {tab === 'manage' && isTeacher && (
@@ -93,21 +102,28 @@ export default function MiniRoomPage() {
       </div>
 
       <FrameViewer item={viewer} onClose={() => setViewer(null)} />
+      {shelfSid && (
+        <BookshelfModal open onClose={() => setShelfSid(null)} sid={shelfSid}
+          name={nameOf(shelfSid)} own={shelfSid === mySid} />
+      )}
     </section>
   )
 }
 
 /* ──────────────── 내 방 ──────────────── */
-function HomeTab({ room, name, seed, customAvatar, gifts, onHangGift, onDiscardGift, onClickItem, onStatus, onEdit }: {
+function HomeTab({ room, name, seed, customAvatar, gifts, onHangGift, onDiscardGift, onClickItem, onStatus, onEdit, onOpenShelf }: {
   room: MiniRoom; sid: string; name: string; seed: string; customAvatar?: string; gifts: Gift[]
   onHangGift: (g: Gift) => void; onDiscardGift: (g: Gift) => void; onClickItem: (it: MiniRoomItem | MiniWallItem) => void
-  onStatus: (s: string) => void; onEdit: () => void
+  onStatus: (s: string) => void; onEdit: () => void; onOpenShelf: () => void
 }) {
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
         <div style={{ fontWeight: 800, color: MC.deep }}>🏠 {name} 님의 방</div>
-        <MiniBtn kind="primary" small onClick={onEdit}>🎨 꾸미기</MiniBtn>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <MiniBtn small onClick={onOpenShelf}>📚 내 서재</MiniBtn>
+          <MiniBtn kind="primary" small onClick={onEdit}>🎨 꾸미기</MiniBtn>
+        </div>
       </div>
       <div style={{ flex: 1, minHeight: 240, background: '#fff', border: `2px solid ${MC.ink}`, borderRadius: 12, overflow: 'hidden' }}>
         <RoomView room={room} seed={seed} customAvatar={customAvatar} owner={name} onClickItem={onClickItem} fill maxScale={3} />
@@ -184,7 +200,7 @@ function DecoTab({ sid, name, seed, customAvatar, initialRoom, onSaveRoom, stude
 function ShrineTab({ groups, mySid, roster, roomOf, seedOf, avatarOf, nameOf, onClickItem, onGoHome, isTeacher }: {
   groups: MiniGroup[]; mySid?: string; roster: Student[]
   roomOf: (sid: string) => MiniRoom; seedOf: (sid: string) => string; avatarOf: (sid: string) => string | undefined; nameOf: (sid: string) => string
-  onClickItem: (it: MiniRoomItem | MiniWallItem) => void; onGoHome: () => void
+  onClickItem: (it: MiniRoomItem | MiniWallItem, ownerSid?: string) => void; onGoHome: () => void
   isTeacher: boolean
 }) {
   const myGroup = groups.find(g => mySid && g.memberSids.includes(mySid))
@@ -250,7 +266,7 @@ function ShrineTab({ groups, mySid, roster, roomOf, seedOf, avatarOf, nameOf, on
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button onClick={prev} aria-label="이전 친구" style={arrowStyle}>‹</button>
                 <div style={{ flex: 1, minWidth: 0, height: '68vh', background: '#fff', border: `2px solid ${MC.ink}`, borderRadius: 12, overflow: 'hidden' }}>
-                  <RoomView room={roomOf(sid)} seed={seedOf(sid)} customAvatar={avatarOf(sid)} owner={nameOf(sid)} onClickItem={onClickItem} fill maxScale={3} />
+                  <RoomView room={roomOf(sid)} seed={seedOf(sid)} customAvatar={avatarOf(sid)} owner={nameOf(sid)} onClickItem={it => onClickItem(it, sid)} fill maxScale={3} />
                 </div>
                 <button onClick={next} aria-label="다음 친구" style={arrowStyle}>›</button>
               </div>

@@ -3,6 +3,9 @@ import { avatarUrl, todayStr } from '../data'
 import { approveJoinRequest, effectiveCookies, rejectJoinRequest, setDailyFeature, setDailyTasks, setShopItems, useAgoraPosts, useAgoraTopics, useCustomTitles, useDailyFeature, useDailyTasks, useJoinRequests, useMissions, useNotices, useOfferings, useRoster, useShopItems, useStudentEmailMap, useStudentStateMap, setRoster } from '../state'
 import type { AgoraTopic, AgoraVisibility, ClassTerms, CustomShopItem, CustomTitle, DailyTaskDef, DiaryEntry, JoinRequest, MenuConfig, Mission, Notice, Offering, TitleColor } from '../types'
 import { useClassInfo } from '../ClassContext'
+import { Link } from 'react-router-dom'
+import { liveness, useLibActivities, useLibRecords, useLibStatuses } from '../library/store'
+import { fmtMinutes as fmtLibMinutes } from '../library/types'
 
 const COLORS: TitleColor[] = ['gold', 'blue', 'green', 'rose']
 const COLOR_LABEL: Record<TitleColor, string> = { gold: '황금', blue: '하늘', green: '월계', rose: '장미' }
@@ -10,7 +13,7 @@ const COLOR_LABEL: Record<TitleColor, string> = { gold: '황금', blue: '하늘'
 type AdminMenuKey =
   | 'classSettings' | 'approvals' | 'daily' | 'notices' | 'offerings' | 'roster' | 'missions'
   | 'agora'         | 'diaries'   | 'titles' | 'cookies' | 'shop'      | 'cleanup'
-  | 'questConfig'   | 'shopConfig'
+  | 'questConfig'   | 'shopConfig' | 'library'
 
 const MENU: Array<{ key: AdminMenuKey; icon: string; label: string; desc: string }> = [
   { key: 'classSettings', icon: '⚙️', label: '반 설정',           desc: '반 이름·용어·메뉴 표시 설정' },
@@ -22,6 +25,7 @@ const MENU: Array<{ key: AdminMenuKey; icon: string; label: string; desc: string
   { key: 'missions',      icon: '🎯', label: '미션 관리',         desc: '오늘의 미션을 만들고 위계를 정해요' },
   { key: 'questConfig',   icon: '📜', label: '일일 퀘스트 설정', desc: '퀘스트 항목·이름·점수·설명을 커스텀' },
   { key: 'shopConfig',    icon: '🛍️', label: '상점 설정',         desc: '상점 아이템 추가·수정·삭제' },
+  { key: 'library',       icon: '📚', label: '모두의 도서관',     desc: '도서관 열고 닫기·독서 현황·포트폴리오 인쇄' },
   { key: 'diaries',       icon: '🪶', label: '감정일기',          desc: '학생이 쓴 일지를 보고 피드백을 남겨요' },
   { key: 'titles',        icon: '🎖️', label: '호칭 관리',         desc: '새 호칭을 만들고 학생에게 부여' },
   { key: 'cookies',       icon: '🍪', label: '쿠키 조정',         desc: '학생별 쿠키를 직접 조정' },
@@ -98,6 +102,7 @@ export default function AdminPage() {
               {active === 'missions'    && <MissionsAdminSection />}
               {active === 'questConfig' && <QuestConfigSection />}
               {active === 'shopConfig'  && <ShopConfigSection />}
+              {active === 'library'     && <LibraryAdminSection />}
               {active === 'diaries'     && <DiariesSection />}
               {active === 'titles'    && <TitlesSection />}
               {active === 'cookies'   && <CookiesSection />}
@@ -2665,6 +2670,106 @@ function ShopConfigSection() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={save} className="btn btn--primary">저장</button>
         {saved && <span style={{ fontSize: 13, color: 'var(--green)' }}>저장됐어요!</span>}
+      </div>
+    </section>
+  )
+}
+
+/* ──────────────── 모두의 도서관 (방학 시즌 2) ──────────────── */
+function LibraryAdminSection() {
+  const { classInfo, updateMenus } = useClassInfo()
+  const roster = useRoster()
+  const statuses = useLibStatuses()
+  const records = useLibRecords()
+  const activities = useLibActivities()
+
+  const libMenu = classInfo.menus.find(m => m.key === 'library')
+  const isOpen = libMenu?.enabled ?? false
+
+  const toggleOpen = async () => {
+    await updateMenus(classInfo.menus.map(m => m.key === 'library' ? { ...m, enabled: !isOpen } : m))
+  }
+
+  const now = Date.now()
+  const statusOf = (sid: string) => {
+    const st = statuses.find(s => s.sid === sid)
+    if (!st) return null
+    const live = liveness(st, now)
+    return live === 'gone' ? null : { st, live }
+  }
+
+  const rows = roster.map(s => {
+    const recs = records.filter(r => r.sid === s.id)
+    const mins = recs.reduce((a, r) => a + r.sessions.reduce((x, ss) => x + ss.minutes, 0), 0)
+    const acts = activities.filter(a => a.sid === s.id).length
+    return { s, recs, mins, finished: recs.filter(r => r.finished).length, acts, live: statusOf(s.id) }
+  }).sort((a, b) => b.mins - a.mins)
+
+  return (
+    <section className="space-y-6">
+      {/* 열고 닫기 */}
+      <div className="flex items-center gap-4 flex-wrap p-4 rounded-xl border-2 border-moss-darkest/15 bg-moss-paper">
+        <div className="text-3xl">{isOpen ? '📖' : '🌙'}</div>
+        <div className="flex-1 min-w-[180px]">
+          <div className="font-display font-bold text-moss-darkest">
+            도서관이 지금 {isOpen ? '열려 있어요' : '닫혀 있어요'}
+          </div>
+          <p className="text-xs text-ink-400 mt-0.5">
+            열면 학생 메뉴에 「{libMenu?.label ?? '모두의 도서관'}」이 나타나고, 닫아도 독서 기록은 그대로 보존돼요.
+          </p>
+        </div>
+        <button onClick={() => void toggleOpen()} className={isOpen ? 'btn-ghost' : 'btn-gold'}>
+          {isOpen ? '도서관 닫기' : '도서관 열기'}
+        </button>
+      </div>
+
+      {/* 독서 현황 */}
+      <div>
+        <h3 className="font-display font-bold text-moss-darkest mb-3">학생별 독서 현황</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-ink-400 border-b border-moss-darkest/15">
+                <th className="py-2 pr-2">학생</th>
+                <th className="py-2 pr-2">지금</th>
+                <th className="py-2 pr-2">총 독서 시간</th>
+                <th className="py-2 pr-2">읽은 책</th>
+                <th className="py-2 pr-2">완독</th>
+                <th className="py-2 pr-2">독후활동</th>
+                <th className="py-2">포트폴리오</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ s, recs, mins, finished, acts, live }) => (
+                <tr key={s.id} className="border-b border-moss-darkest/10">
+                  <td className="py-2 pr-2 font-bold text-moss-darkest whitespace-nowrap">{s.realName}</td>
+                  <td className="py-2 pr-2 whitespace-nowrap text-xs">
+                    {live
+                      ? live.live === 'reading'
+                        ? <span className="text-moss-deep font-bold">📖 독서 중{live.st.book ? ` · ${live.st.book.title}` : ''}</span>
+                        : live.live === 'away'
+                          ? <span className="text-ink-400">😴 자리 비움</span>
+                          : <span className="text-water-600">💭 대기 중</span>
+                      : <span className="text-ink-300">—</span>}
+                  </td>
+                  <td className="py-2 pr-2 whitespace-nowrap">{mins ? fmtLibMinutes(mins) : '—'}</td>
+                  <td className="py-2 pr-2">{recs.length || '—'}</td>
+                  <td className="py-2 pr-2">{finished ? `🏅 ${finished}` : '—'}</td>
+                  <td className="py-2 pr-2">{acts || '—'}</td>
+                  <td className="py-2">
+                    <Link to={`/app/library-print/${s.id}`}
+                      className="text-xs font-bold text-moss-deep underline whitespace-nowrap">
+                      🖨 인쇄용 보기
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-ink-400 mt-3">
+          「인쇄용 보기」에서 브라우저 인쇄(⌘P)로 학기말 PDF를 저장할 수 있어요.
+        </p>
       </div>
     </section>
   )

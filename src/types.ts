@@ -269,7 +269,7 @@ export type StudentStateMap = Record<string, StudentState>
 
 /* ──────────────── 다반 지원 (multi-class) ──────────────── */
 
-export type MenuKey = 'notice' | 'quests' | 'missions' | 'shop' | 'offerings' | 'shrine'
+export type MenuKey = 'notice' | 'quests' | 'missions' | 'shop' | 'offerings' | 'shrine' | 'library'
 
 export interface MenuConfig {
   key: MenuKey

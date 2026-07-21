@@ -265,7 +265,8 @@ export function RoomView({ room, seed, customAvatar, owner, editable = false, se
             }
             const it = o.it
             const sel = editable && selectedId === it.id
-            const clickable = !editable && !!onClickItem && !!it.sketch
+            // 서재(bookshelf)는 그림이 없어도 클릭 가능 — 독서 포트폴리오가 열린다
+            const clickable = !editable && !!onClickItem && (!!it.sketch || it.key === 'bookshelf')
             return (
               <div
                 key={it.id}

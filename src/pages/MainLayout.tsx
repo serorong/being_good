@@ -5,6 +5,7 @@ import { useRoster, useStudentStateMap, effectiveCookies } from '../state'
 import { levelFromXp } from '../data'
 import { signOutFirebase } from '../firebase'
 import { useClassInfo } from '../ClassContext'
+import { LibraryStatusBar } from '../library/StatusBar'
 import type { MenuKey } from '../types'
 
 const MENU_PATHS: Record<MenuKey, string> = {
@@ -14,8 +15,10 @@ const MENU_PATHS: Record<MenuKey, string> = {
   shop:      '/app/shop',
   offerings: '/app/offerings',
   shrine:    '/app/shrine',
+  library:   '/app/library',
 }
 
+// library는 전용 아이콘 이미지가 없어 이모지로 표시 (빈 문자열 = 이모지 대체)
 const MENU_ICONS: Record<MenuKey, string> = {
   notice:    'ic_notice',
   quests:    'ic_scroll',
@@ -23,6 +26,7 @@ const MENU_ICONS: Record<MenuKey, string> = {
   shop:      'ic_shop',
   offerings: 'ic_offering',
   shrine:    'ic_shrine',
+  library:   '',
 }
 
 export default function MainLayout() {
@@ -79,7 +83,9 @@ export default function MainLayout() {
                 style={{ textDecoration: 'none' }}
               >
                 <span className="nav__btn-label">
-                  <img src={`/assets/${MENU_ICONS[m.key]}.png`} className="nav__icon" alt="" />
+                  {MENU_ICONS[m.key]
+                    ? <img src={`/assets/${MENU_ICONS[m.key]}.png`} className="nav__icon" alt="" />
+                    : <span style={{ fontSize: 18, lineHeight: 1 }}>📚</span>}
                   {m.label}
                 </span>
               </NavLink>
@@ -113,6 +119,8 @@ export default function MainLayout() {
       <main className="sin-main">
         <Outlet />
       </main>
+
+      <LibraryStatusBar />
     </div>
   )
 }

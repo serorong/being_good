@@ -98,6 +98,28 @@ service cloud.firestore {
                       || mappedSid() == resource.data.fromSid;
     }
 
+    /* ── 방학 시즌 2 — 모두의 도서관 (gifts와 같은 본인-쓰기 패턴) ── */
+
+    // 좌석·타이머 실시간 상태 — 문서 ID = sid, 본인만 쓰기
+    match /library_status/{sid} {
+      allow read:  if isAuthed();
+      allow write: if isTeacher() || (isAuthed() && mappedSid() == sid);
+    }
+
+    // 독서 기록 (책 1권 = 문서 1개)
+    match /library_records/{id} {
+      allow read:           if isAuthed();
+      allow create, update: if isTeacher() || (isAuthed() && request.resource.data.sid == mappedSid());
+      allow delete:         if isTeacher() || (isAuthed() && resource.data.sid == mappedSid());
+    }
+
+    // 독후활동
+    match /library_activities/{id} {
+      allow read:           if isAuthed();
+      allow create, update: if isTeacher() || (isAuthed() && request.resource.data.sid == mappedSid());
+      allow delete:         if isTeacher() || (isAuthed() && resource.data.sid == mappedSid());
+    }
+
     /* ── 새 클래스 ── */
 
     // 클래스 summary 문서 (/classes/{classId})

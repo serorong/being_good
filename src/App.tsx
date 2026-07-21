@@ -13,6 +13,8 @@ import OfferingsPage from './pages/OfferingsPage'
 import ShopPage from './pages/ShopPage'
 import ShrinePage from './pages/ShrinePage'
 import AdminPage from './pages/AdminPage'
+import LibraryPage from './library/LibraryPage'
+import PortfolioPrintPage from './library/PortfolioPrintPage'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const [auth] = useAuth()
@@ -51,10 +53,15 @@ function AppWithClass() {
           <Route path="shop"       element={<ShopPage />} />
           <Route path="offerings"  element={<OfferingsPage />} />
           <Route path="shrine"     element={<ShrinePage />} />
+          <Route path="library"    element={<LibraryPage />} />
           <Route path="admin"      element={<RequireTeacher><AdminPage /></RequireTeacher>} />
           <Route path="agora"      element={<Navigate to="/app" replace />} />
           <Route path="sanctuary"  element={<Navigate to="/app/shrine" replace />} />
         </Route>
+        {/* 인쇄용 보기 — 헤더 없이 전체 화면으로 (MainLayout 바깥) */}
+        <Route path="/app/library-print/:sid" element={
+          <RequireAuth><RequireTeacher><PortfolioPrintPage /></RequireTeacher></RequireAuth>
+        } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ClassProvider>
