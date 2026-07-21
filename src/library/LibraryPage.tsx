@@ -162,6 +162,9 @@ export default function LibraryPage() {
       {/* 책 고르기 */}
       {actorSid && (
         <BookSearchModal open={searchOpen} onClose={() => setSearchOpen(false)}
+          myUnfinished={records
+            .filter(r => r.sid === actorSid && !r.finished)
+            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))}
           onStart={async (book, minutes) => {
             const rec = await getOrCreateRecord(actorSid, book)
             await startReading(actorSid, book, rec.id, minutes)
@@ -255,9 +258,10 @@ function MyPanel({ status, record, now, onPickBook, onFinish, onPause, onResume,
 }
 
 /* ──────────────── 책 고르기 (카카오 검색 + 수동 입력) ──────────────── */
-function BookSearchModal({ open, onClose, onStart }: {
+function BookSearchModal({ open, onClose, onStart, myUnfinished }: {
   open: boolean; onClose: () => void
   onStart: (book: LibBook, minutes: number) => Promise<void>
+  myUnfinished: LibRecord[]
 }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<LibBook[]>([])
@@ -302,6 +306,37 @@ function BookSearchModal({ open, onClose, onStart }: {
     <Modal open={open} onClose={close} title="📖 무슨 책을 읽을까요?" maxWidth={620}>
       {!picked && !manual && (
         <div style={{ display: 'grid', gap: 10 }}>
+          {/* 읽던 책 이어서 읽기 — 매번 검색하지 않아도 되게 */}
+          {myUnfinished.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: MC.deep, marginBottom: 6 }}>📖 읽던 책 이어서 읽기</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 6, maxHeight: 230, overflowY: 'auto' }}>
+                {myUnfinished.map(rec => {
+                  const total = rec.book.totalPages ?? 0
+                  const pct = total > 0 ? Math.min(100, Math.round((rec.currentPage / total) * 100)) : null
+                  return (
+                    <button key={rec.id}
+                      onClick={() => {
+                        setPicked(rec.book)
+                        setPages(rec.book.totalPages ? String(rec.book.totalPages) : '')
+                      }}
+                      style={{ display: 'flex', gap: 8, alignItems: 'center', textAlign: 'left', padding: 8, borderRadius: 10, border: `2px solid ${MC.line}`, background: MC.cream, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {rec.book.thumbnail
+                        ? <img src={rec.book.thumbnail} alt="" style={{ width: 32, height: 46, objectFit: 'cover', borderRadius: 3, border: `1px solid ${MC.line}` }} />
+                        : <div style={{ width: 32, height: 46, borderRadius: 3, border: `1px solid ${MC.line}`, display: 'grid', placeItems: 'center', background: '#fff' }}>📕</div>}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 800, fontSize: 12, color: MC.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.book.title}</div>
+                        <div style={{ fontSize: 10, color: '#a06', marginTop: 2 }}>
+                          {rec.currentPage > 0 ? `${rec.currentPage}쪽까지 읽음` : '읽기 시작한 책'}{pct !== null ? ` · ${pct}%` : ''}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#a06', margin: '12px 0 2px' }}>🔍 새 책 읽기</div>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="책 제목을 검색해 봐요 (예: 해리 포터)"
               onKeyDown={e => { if (e.key === 'Enter') void doSearch() }} autoFocus
