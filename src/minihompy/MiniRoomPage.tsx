@@ -125,7 +125,8 @@ function HomeTab({ room, name, seed, customAvatar, gifts, onHangGift, onDiscardG
           <MiniBtn kind="primary" small onClick={onEdit}>🎨 꾸미기</MiniBtn>
         </div>
       </div>
-      <div style={{ flex: 1, minHeight: 240, background: '#fff', border: `2px solid ${MC.ink}`, borderRadius: 12, overflow: 'hidden' }}>
+      {/* 높이를 명시해야 fill 스케일이 정확히 계산돼 방이 잘리지 않는다 */}
+      <div style={{ height: '60vh', minHeight: 300, background: '#fff', border: `2px solid ${MC.ink}`, borderRadius: 12, overflow: 'hidden', flexShrink: 0 }}>
         <RoomView room={room} seed={seed} customAvatar={customAvatar} owner={name} onClickItem={onClickItem} fill maxScale={3} />
       </div>
       <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>

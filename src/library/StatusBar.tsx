@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useRoster } from '../state'
 import { useClassInfo } from '../ClassContext'
 import { liveness, useLibRecords, useLibStatuses } from './store'
+import { TEACHER_NAME, TEACHER_SID } from './types'
 
 const COLLAPSE_KEY = 'library.statusbar.collapsed'
 
@@ -24,7 +25,7 @@ export function LibraryStatusBar() {
 
   const now = Date.now()
   const active = useMemo(
-    () => statuses.filter(s => roster.some(r => r.id === s.sid) && liveness(s, now) !== 'gone'),
+    () => statuses.filter(s => (s.sid === TEACHER_SID || roster.some(r => r.id === s.sid)) && liveness(s, now) !== 'gone'),
     [statuses, roster, now])
 
   if (!enabled || onLibrary || active.length === 0) return null
@@ -36,7 +37,7 @@ export function LibraryStatusBar() {
     })
   }
 
-  const nameOf = (sid: string) => roster.find(r => r.id === sid)?.heroName || sid
+  const nameOf = (sid: string) => sid === TEACHER_SID ? `👩‍🏫 ${TEACHER_NAME}` : roster.find(r => r.id === sid)?.heroName || sid
   const readingCount = active.filter(s => liveness(s, now) === 'reading').length
 
   return (

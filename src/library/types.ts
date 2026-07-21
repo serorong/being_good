@@ -87,6 +87,10 @@ export const activityMeta = (t: LibActivityType) => ACTIVITY_TYPES.find(a => a.t
 /** 좌석 수 (6열 × 4줄) */
 export const SEAT_COUNT = 24
 
+/** 선생님도 도서관에 참여한다 — 명단에 없는 고정 sid 사용 */
+export const TEACHER_SID = 'teacher'
+export const TEACHER_NAME = '선생님'
+
 /** heartbeat가 이 시간(ms)보다 오래 끊기면 '자리 비움' */
 export const AWAY_MS = 5 * 60 * 1000
 /** heartbeat가 이 시간(ms)보다 오래 끊기면 자리 자체를 비운 것으로 간주 */

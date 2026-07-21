@@ -16,7 +16,7 @@ import {
   clearAllSeats, elapsedMs, finishReading, getOrCreateRecord, leaveSeat, liveness,
   pauseReading, resumeReading, sitDown, startReading, useHeartbeat, useLibRecords, useLibStatuses,
 } from './store'
-import { SEAT_COUNT, fmtMinutes, type LibBook, type LibRecord, type LibStatus } from './types'
+import { SEAT_COUNT, TEACHER_NAME, TEACHER_SID, fmtMinutes, type LibBook, type LibRecord, type LibStatus } from './types'
 
 /* 도서관 팔레트 — 미니룸과 같은 도트 감성, 나무·초록 톤 */
 const LC = { wood: '#a87b50', woodSoft: '#e9d5b5', paper: '#fbf6ea', ink: '#3a2b3a', green: '#2e7d52', line: '#d3b98c' }
@@ -32,7 +32,8 @@ export default function LibraryPage() {
   const records = useLibRecords()
 
   const isTeacher = auth?.role === 'teacher'
-  const mySid = auth?.role === 'student' ? auth.studentId : undefined
+  // 선생님도 학생처럼 자리에 앉아 책을 읽는다 (고정 sid = 'teacher')
+  const actorSid = isTeacher ? TEACHER_SID : auth?.role === 'student' ? auth.studentId : undefined
 
   // 1초마다 갱신 — 타이머·자리비움 판정용
   const [now, setNow] = useState(() => Date.now())
@@ -41,21 +42,21 @@ export default function LibraryPage() {
     return () => clearInterval(t)
   }, [])
 
-  const nameOf = (sid: string) => roster.find(s => s.id === sid)?.heroName || sid
+  const nameOf = (sid: string) => sid === TEACHER_SID ? TEACHER_NAME : roster.find(s => s.id === sid)?.heroName || sid
   const seedOf = (sid: string) => roster.find(s => s.id === sid)?.avatarSeed || sid
-  const avatarOf = (sid: string) => get(sid)?.customAvatar
+  const avatarOf = (sid: string) => sid === TEACHER_SID ? undefined : get(sid)?.customAvatar
 
   const active = useMemo(
-    () => statuses.filter(s => roster.some(r => r.id === s.sid) && liveness(s, now) !== 'gone'),
+    () => statuses.filter(s => (s.sid === TEACHER_SID || roster.some(r => r.id === s.sid)) && liveness(s, now) !== 'gone'),
     [statuses, roster, now])
   const bySeat = useMemo(() => {
     const m = new Map<number, LibStatus>()
     for (const s of active) if (s.seat !== null) m.set(s.seat, s)
     return m
   }, [active])
-  const myStatus = mySid ? active.find(s => s.sid === mySid) : undefined
+  const myStatus = actorSid ? active.find(s => s.sid === actorSid) : undefined
 
-  useHeartbeat(mySid, !!myStatus)
+  useHeartbeat(actorSid, !!myStatus)
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
@@ -76,7 +77,7 @@ export default function LibraryPage() {
 
   const recordOf = (st: LibStatus) => records.find(r => r.id === st.recordId)
 
-  const sit = (seat: number) => { if (mySid) void sitDown(mySid, seat) }
+  const sit = (seat: number) => { if (actorSid) void sitDown(actorSid, seat) }
 
   return (
     <section className="sin-screen" style={{ fontFamily: "'Galmuri11','DungGeunMo',sans-serif" }}>
@@ -89,7 +90,8 @@ export default function LibraryPage() {
           <span style={{ fontSize: 12, fontWeight: 700, color: LC.green, background: '#e6f2ea', border: `1px solid ${LC.green}`, borderRadius: 999, padding: '4px 10px' }}>
             🪑 {active.length}명 이용 중
           </span>
-          {mySid && <MiniBtn small onClick={() => setShelfSid(mySid)}>📚 내 서재</MiniBtn>}
+          {actorSid && <MiniBtn small onClick={() => setShelfSid(actorSid)}>📚 내 서재</MiniBtn>}
+          {!isTeacher && <MiniBtn small kind="ghost" onClick={() => setShelfSid(TEACHER_SID)}>👩‍🏫 선생님 서재</MiniBtn>}
           {isTeacher && (
             <MiniBtn small kind="ghost" onClick={() => { if (confirm('모든 자리를 비울까요? (기록은 지워지지 않아요)')) void clearAllSeats() }}>
               🧹 모든 자리 비우기
@@ -99,11 +101,11 @@ export default function LibraryPage() {
       </div>
 
       {/* 내 독서 패널 */}
-      {mySid && (
+      {actorSid && (
         <MyPanel status={myStatus} record={myStatus ? recordOf(myStatus) : undefined} now={now}
           onPickBook={() => setSearchOpen(true)} onFinish={() => setFinishOpen(true)}
-          onPause={() => void pauseReading(mySid)} onResume={() => void resumeReading(mySid)}
-          onLeave={() => { if (!myStatus?.startedAt || confirm('타이머가 도는 중이에요. 정말 나갈까요? (읽은 시간은 저장되지 않아요)')) void leaveSeat(mySid) }} />
+          onPause={() => void pauseReading(actorSid)} onResume={() => void resumeReading(actorSid)}
+          onLeave={() => { if (!myStatus?.startedAt || confirm('타이머가 도는 중이에요. 정말 나갈까요? (읽은 시간은 저장되지 않아요)')) void leaveSeat(actorSid) }} />
       )}
 
       {/* 좌석 그리드 */}
@@ -113,15 +115,15 @@ export default function LibraryPage() {
             const st = bySeat.get(i)
             if (!st) {
               return (
-                <button key={i} onClick={() => sit(i)} disabled={!mySid}
-                  style={{ minHeight: 110, borderRadius: 12, border: `2px dashed ${LC.line}`, background: '#fffdf6', cursor: mySid ? 'pointer' : 'default', fontFamily: 'inherit', display: 'grid', placeItems: 'center', gap: 2, padding: 8 }}>
+                <button key={i} onClick={() => sit(i)} disabled={!actorSid}
+                  style={{ minHeight: 110, borderRadius: 12, border: `2px dashed ${LC.line}`, background: '#fffdf6', cursor: actorSid ? 'pointer' : 'default', fontFamily: 'inherit', display: 'grid', placeItems: 'center', gap: 2, padding: 8 }}>
                   <span style={{ fontSize: 20, opacity: 0.5 }}>🪑</span>
-                  <span style={{ fontSize: 11, color: '#b09a72' }}>{mySid ? (myStatus ? '이 자리로 옮기기' : '여기 앉기') : '빈자리'}</span>
+                  <span style={{ fontSize: 11, color: '#b09a72' }}>{actorSid ? (myStatus ? '이 자리로 옮기기' : '여기 앉기') : '빈자리'}</span>
                 </button>
               )
             }
             const live = liveness(st, now)
-            const isMe = st.sid === mySid
+            const isMe = st.sid === actorSid
             const rec = recordOf(st)
             const total = rec?.book.totalPages ?? 0
             const pct = rec ? (rec.finished ? 100 : total > 0 ? Math.min(100, Math.round((rec.currentPage / total) * 100)) : null) : null
@@ -136,7 +138,9 @@ export default function LibraryPage() {
                   opacity: live === 'away' ? 0.75 : 1,
                 }}>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <Sprite seed={seedOf(st.sid)} size={40} customSrc={avatarOf(st.sid)} shadow={false} />
+                  {st.sid === TEACHER_SID
+                    ? <div style={{ fontSize: 30, lineHeight: '40px' }}>👩‍🏫</div>
+                    : <Sprite seed={seedOf(st.sid)} size={40} customSrc={avatarOf(st.sid)} shadow={false} />}
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 800, color: LC.ink, marginTop: 2 }}>
                   {nameOf(st.sid)}{isMe && ' (나)'}
@@ -156,21 +160,21 @@ export default function LibraryPage() {
       </div>
 
       {/* 책 고르기 */}
-      {mySid && (
+      {actorSid && (
         <BookSearchModal open={searchOpen} onClose={() => setSearchOpen(false)}
           onStart={async (book, minutes) => {
-            const rec = await getOrCreateRecord(mySid, book)
-            await startReading(mySid, book, rec.id, minutes)
+            const rec = await getOrCreateRecord(actorSid, book)
+            await startReading(actorSid, book, rec.id, minutes)
             setSearchOpen(false)
           }} />
       )}
 
       {/* 타이머 종료 */}
-      {mySid && myStatus && (
+      {actorSid && myStatus && (
         <FinishModal open={finishOpen} onClose={() => setFinishOpen(false)} status={myStatus}
           record={recordOf(myStatus)} now={now}
           onSave={async (endPage, finished) => {
-            await finishReading(mySid, { endPage, finished })
+            await finishReading(actorSid, { endPage, finished })
             setFinishOpen(false)
           }} />
       )}
@@ -178,7 +182,7 @@ export default function LibraryPage() {
       {/* 서재 구경 */}
       {shelfSid && (
         <BookshelfModal open onClose={() => setShelfSid(null)} sid={shelfSid}
-          name={nameOf(shelfSid)} own={shelfSid === mySid} />
+          name={nameOf(shelfSid)} own={shelfSid === actorSid} />
       )}
     </section>
   )
