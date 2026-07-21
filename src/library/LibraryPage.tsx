@@ -268,13 +268,12 @@ function BookSearchModal({ open, onClose, onStart, myUnfinished }: {
   const [searching, setSearching] = useState(false)
   const [searched, setSearched] = useState(false)
   const [picked, setPicked] = useState<LibBook | null>(null)
-  const [pages, setPages] = useState('')
   const [minutes, setMinutes] = useState(20)
   const [manual, setManual] = useState(false)
   const [mTitle, setMTitle] = useState('')
   const [mAuthor, setMAuthor] = useState('')
 
-  const reset = () => { setQ(''); setResults([]); setSearched(false); setPicked(null); setPages(''); setManual(false); setMTitle(''); setMAuthor('') }
+  const reset = () => { setQ(''); setResults([]); setSearched(false); setPicked(null); setManual(false); setMTitle(''); setMAuthor('') }
   const close = () => { reset(); onClose() }
 
   const doSearch = async () => {
@@ -297,8 +296,7 @@ function BookSearchModal({ open, onClose, onStart, myUnfinished }: {
       ? { title: mTitle.trim(), authors: mAuthor.trim() || undefined }
       : picked
     if (!book || !book.title) { alert('책을 골라 주세요!'); return }
-    const totalPages = parseInt(pages, 10)
-    await onStart({ ...book, ...(totalPages > 0 ? { totalPages } : {}) }, minutes)
+    await onStart(book, minutes)
     reset()
   }
 
@@ -316,10 +314,7 @@ function BookSearchModal({ open, onClose, onStart, myUnfinished }: {
                   const pct = total > 0 ? Math.min(100, Math.round((rec.currentPage / total) * 100)) : null
                   return (
                     <button key={rec.id}
-                      onClick={() => {
-                        setPicked(rec.book)
-                        setPages(rec.book.totalPages ? String(rec.book.totalPages) : '')
-                      }}
+                      onClick={() => setPicked(rec.book)}
                       style={{ display: 'flex', gap: 8, alignItems: 'center', textAlign: 'left', padding: 8, borderRadius: 10, border: `2px solid ${MC.line}`, background: MC.cream, cursor: 'pointer', fontFamily: 'inherit' }}>
                       {rec.book.thumbnail
                         ? <img src={rec.book.thumbnail} alt="" style={{ width: 32, height: 46, objectFit: 'cover', borderRadius: 3, border: `1px solid ${MC.line}` }} />
@@ -393,12 +388,6 @@ function BookSearchModal({ open, onClose, onStart, myUnfinished }: {
               </button>
             </div>
           )}
-
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: MC.deep, marginBottom: 6 }}>이 책은 전부 몇 쪽인가요? <span style={{ fontWeight: 400, color: '#a06' }}>(진행률 표시에 써요 — 몰라도 괜찮아요)</span></div>
-            <input value={pages} onChange={e => setPages(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="예: 240"
-              style={{ width: 120, padding: 8, border: `2px solid ${MC.line}`, borderRadius: 8, fontFamily: 'inherit', fontSize: 14 }} /> 쪽
-          </div>
 
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: MC.deep, marginBottom: 6 }}>얼마나 읽을까요?</div>
