@@ -76,7 +76,7 @@ export function maxDailyScore() {
 
 // 실제 신의반 학생 명단 (구글 시트에서 가져온 21명)
 // id = 학생 코드. 학생이 첫 로그인 후 heroName/avatarSeed를 직접 바꿀 수 있음.
-export const ROSTER: Array<{ id: string; name: string }> = [
+const ROSTER: Array<{ id: string; name: string }> = [
   { id: 'god01', name: '강라윤' }, { id: 'god02', name: '김민지' }, { id: 'god03', name: '김유준' },
   { id: 'god04', name: '김지환' }, { id: 'god05', name: '노승유' }, { id: 'god06', name: '노찬영' },
   { id: 'god07', name: '문하윤' }, { id: 'god08', name: '박선율' }, { id: 'god09', name: '손연우' },

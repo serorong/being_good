@@ -5,8 +5,7 @@ import type { AgoraTopic, AgoraVisibility, ClassTerms, CustomShopItem, CustomTit
 import { useClassInfo } from '../ClassContext'
 import { Link } from 'react-router-dom'
 import { liveness, useLibActivities, useLibRecords, useLibStatuses } from '../library/store'
-import { fmtMinutes as fmtLibMinutes, TEACHER_NAME, TEACHER_SID } from '../library/types'
-import { resetLibPassword, useLibAuthDocs } from '../library/site/auth'
+import { fmtMinutes as fmtLibMinutes } from '../library/types'
 
 const COLORS: TitleColor[] = ['gold', 'blue', 'green', 'rose']
 const COLOR_LABEL: Record<TitleColor, string> = { gold: '황금', blue: '하늘', green: '월계', rose: '장미' }
@@ -2800,9 +2799,6 @@ function LibraryAdminSection() {
         </button>
       </div>
 
-      {/* 전용 페이지 · 비밀번호 관리 */}
-      <LibPasswordSection />
-
       {/* 독서 현황 */}
       <div>
         <h3 className="font-display font-bold text-moss-darkest mb-3">학생별 독서 현황</h3>
@@ -2855,53 +2851,3 @@ function LibraryAdminSection() {
   )
 }
 
-/* ── 도서관 전용 페이지(/library) 비밀번호 관리 ── */
-function LibPasswordSection() {
-  const roster = useRoster()
-  const authDocs = useLibAuthDocs()
-  const [busySid, setBusySid] = useState<string | null>(null)
-
-  const entries = [
-    ...roster.map(s => ({ sid: s.id, name: s.realName })),
-    { sid: TEACHER_SID, name: TEACHER_NAME },
-  ]
-  const registeredCount = entries.filter(e => authDocs[e.sid]?.uid).length
-
-  const reset = async (sid: string, name: string) => {
-    if (!confirm(`${name} 학생의 도서관 비밀번호를 초기화할까요?\n초기화하면 학생이 새 비밀번호를 만들어 다시 들어올 수 있어요. (독서 기록은 그대로예요)`)) return
-    setBusySid(sid)
-    try { await resetLibPassword(sid) }
-    catch (e) { alert('초기화가 잘 안 됐어요. 잠시 후 다시 해 보세요.'); console.error(e) }
-    finally { setBusySid(null) }
-  }
-
-  return (
-    <div className="p-4 rounded-xl border-2 border-moss-darkest/15 bg-moss-paper">
-      <div className="flex items-center gap-3 flex-wrap mb-1">
-        <h3 className="font-display font-bold text-moss-darkest">전용 페이지 비밀번호</h3>
-        <span className="text-xs text-ink-400">{registeredCount}/{entries.length}명 등록</span>
-      </div>
-      <p className="text-xs text-ink-400 mb-3">
-        학생들은 <b>divine-classroom.web.app/library</b> 에서 구글 로그인 없이, 자기가 만든 비밀번호로 들어와요.
-        비밀번호를 잊은 학생은 여기서 초기화해 주세요.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {entries.map(e => {
-          const registered = !!authDocs[e.sid]?.uid
-          return (
-            <span key={e.sid}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold ${registered ? 'border-moss-deep/40 bg-white text-moss-darkest' : 'border-moss-darkest/10 bg-white/50 text-ink-300'}`}>
-              {e.name}
-              {registered
-                ? <button onClick={() => void reset(e.sid, e.name)} disabled={busySid === e.sid}
-                    className="text-[11px] underline text-red-700 disabled:opacity-40">
-                    {busySid === e.sid ? '초기화 중…' : '초기화'}
-                  </button>
-                : <span className="text-[11px]">미등록</span>}
-            </span>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
