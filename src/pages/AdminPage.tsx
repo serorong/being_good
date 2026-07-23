@@ -518,15 +518,12 @@ function BulkLinkPanel() {
 
   const apply = () => {
     if (!matched.length) return
-    if (!confirm(`${matched.length}명의 계정을 명단과 연결할까요?\n(이미 연결된 학생은 새 계정으로 바뀌고, 활동 기록은 그대로 보존돼요)`)) return
+    if (!confirm(`${matched.length}명의 계정을 명단과 연결할까요?\n(기존에 연결된 다른 계정은 끊지 않고 추가돼요 — 한 학생이 두 계정 모두로 들어올 수 있어요)`)) return
     setEmailMap(prev => {
+      // 같은 자리(sid)의 기존 계정은 그대로 두고 추가한다 — 스페어 계정 허용.
+      // 붙여넣은 이메일이 이미 다른 자리를 가리키고 있었다면 새 자리로 옮겨진다.
       const next: Record<string, string> = { ...prev }
-      for (const r of matched) {
-        for (const [em, sid] of Object.entries(next)) {
-          if (sid === r.sid || em === r.email) delete next[em]
-        }
-        next[r.email!] = r.sid!
-      }
+      for (const r of matched) next[r.email!] = r.sid!
       return next
     })
     setDone(`✓ ${matched.length}명 연결 완료! 이제 해당 계정으로 로그인하면 바로 자기 자리로 들어가요.`)
@@ -539,6 +536,7 @@ function BulkLinkPanel() {
       <p className="text-xs text-ink-400 mt-1 mb-2 leading-relaxed">
         구글 시트에서 <b>이름·이메일 두 열을 복사해 붙여넣으면</b>(줄마다 「이름, 이메일」) 명단과 이름을 대조해 한 번에 연결해요.
         연결된 학생은 입장 신청 없이 첫 로그인부터 자동 입장합니다. 비밀번호 열은 붙여넣지 마세요.
+        같은 학생에게 계정을 여러 번 연결하면 <b>기존 연결은 끊기지 않고 추가</b>돼요 — 스페어 계정도 같은 자리로 들어옵니다.
       </p>
       <textarea
         value={text}
