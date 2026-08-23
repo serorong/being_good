@@ -168,6 +168,10 @@ class StudentsHybridStore {
   }
 
   private recompute() {
+    // students_v2 컬렉션이 도착하기 전에는 기존 스냅샷(캐시)을 유지한다.
+    // 옛 단일 문서(students_state)가 먼저 도착해도 절대 화면·캐시에 채택하지 않음 —
+    // 옛 문서는 소수 학생만 담긴 낡은 데이터라 나머지 학생이 '초기화'된 것처럼 보인다.
+    if (!this.collectionReceived) return
     const next: StudentStateMap = this.isCollectionPopulated() ? this.collectionMap : this.legacyMap
     if (next === this.snapshot) return
     this.snapshot = next
@@ -219,6 +223,14 @@ class StudentsHybridStore {
     updater: StudentStateMap | ((prev: StudentStateMap) => StudentStateMap),
     onError?: (e: unknown) => void,
   ) => {
+    // 서버 데이터가 도착하기 전의 쓰기는 거부 — 빈 스냅샷 기준으로 만든 기본 상태가
+    // 실제 학생 문서(쿠키·일기)를 덮어쓰는 사고를 막는다.
+    if (!this.collectionReceived) {
+      const err = new Error('학생 데이터를 아직 불러오는 중이에요. 잠시 후 다시 시도해 주세요.')
+      console.warn('[state] students write blocked before initial load')
+      onError?.(err)
+      return
+    }
     const prev = this.snapshot
     const next = typeof updater === 'function' ? (updater as (p: StudentStateMap) => StudentStateMap)(prev) : updater
     this.snapshot = next
@@ -239,11 +251,6 @@ class StudentsHybridStore {
       console.error('[state] students_v2 write failed:', err)
       onError?.(err)
     })
-
-    if (!this.isCollectionPopulated()) {
-      setDoc(this.legacyDocRef, { value: stripUndefined(next) }).catch(err =>
-        console.error('[state] students_state(legacy) write failed:', err))
-    }
   }
 
   subscribe = (l: Listener) => {
