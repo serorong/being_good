@@ -662,16 +662,17 @@ export function spendCookies(sid: string, amount: number): boolean {
 }
 
 export function purchaseShopItem(sid: string, item: { id: string; name: string; icon?: string; cost: number }): boolean {
-  if (!sid || item.cost <= 0) return false
+  // cost 음수 허용 — 음수(예: 벌점 취소·보상형 아이템)는 쿠키를 오히려 더해 준다.
+  if (!sid || item.cost === 0) return false
   const cur = _activeStores.students.get()[sid] ?? emptyState()
   const baseCookies = _activeStores.roster.get().find(s => s.id === sid)?.cookies ?? 0
-  if ((cur.cookies ?? baseCookies) < item.cost) return false
+  if (item.cost > 0 && (cur.cookies ?? baseCookies) < item.cost) return false
 
   _activeStores.students.set(prev => {
     const c = prev[sid] ?? emptyState()
     const base = _activeStores.roster.get().find(s => s.id === sid)?.cookies ?? 0
     const oc = c.cookies ?? base
-    if (oc < item.cost) return prev
+    if (item.cost > 0 && oc < item.cost) return prev
     const ol = c.lifetimeCookies ?? oc
     return {
       ...prev,

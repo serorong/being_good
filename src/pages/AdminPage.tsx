@@ -2723,9 +2723,9 @@ function ShopConfigSection() {
                 <input className="input" value={item.name} onChange={e => update(i, 'name', e.target.value)} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>가격 (쿠키)</label>
-                <input className="input" type="number" min={1} value={item.cost}
-                  onChange={e => update(i, 'cost', Math.max(1, Number(e.target.value)))} />
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>가격 (쿠키, 음수 가능)</label>
+                <input className="input" type="number" value={item.cost}
+                  onChange={e => update(i, 'cost', Number.isNaN(Number(e.target.value)) ? 0 : Number(e.target.value))} />
               </div>
             </div>
             <div style={{ marginBottom: 8 }}>
